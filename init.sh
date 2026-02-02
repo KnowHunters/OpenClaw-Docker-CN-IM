@@ -182,7 +182,7 @@ EOF
             echo "," >> /home/node/.openclaw/openclaw.json
         fi
         cat >> /home/node/.openclaw/openclaw.json <<EOF
-    "wxwork": {
+    "wecom": {
       "enabled": true,
       "token": "$WECOM_TOKEN",
       "encodingAesKey": "$WECOM_ENCODING_AES_KEY"

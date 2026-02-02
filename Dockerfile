@@ -1,5 +1,5 @@
 # OpenClaw Docker 镜像
-FROM node:22-bookworm
+FROM node:22-slim
 
 # 设置工作目录
 WORKDIR /app
@@ -16,13 +16,10 @@ RUN apt-get update \
     git \
     gosu \
     jq \
-    novnc \
     python3 \
     socat \
     tini \
     websockify \
-    x11vnc \
-    xvfb \
   && rm -rf /var/lib/apt/lists/*
 
 # 更新 npm 到最新版本
@@ -54,13 +51,13 @@ RUN cd /tmp && \
     timeout 300 openclaw plugins install . || true
 
 # 安装企业微信插件 - 使用 timeout 防止卡住，忽略错误继续构建
-RUN timeout 300 openclaw plugins install https://github.com/sunnoy/openclaw-plugin-wecom.git || true
+RUN timeout 300 openclaw plugins install openclaw-plugin-wecom || true
 
 # 切换回 root 用户继续后续操作
 USER root
 
-# 确保 extensions 目录权限正确
-RUN chown -R node:node /home/node/.openclaw/extensions
+# 确保 extensions 目录权限正确（排除 node_modules 以加快构建速度）
+RUN find /home/node/.openclaw/extensions -type d -name node_modules -prune -o -exec chown node:node {} +
 
 # 复制初始化脚本
 COPY ./init.sh /usr/local/bin/init.sh
