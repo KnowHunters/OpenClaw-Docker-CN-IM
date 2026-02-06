@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-48"
+SCRIPT_VERSION="2026.2.6-49"
 
 
 # Initialize log file
@@ -799,19 +799,19 @@ prompt_env_collect() {
   local yn
   yn="$(confirm_yesno "是否配置 Telegram?" "N")"
   if [[ "$yn" =~ ^[Yy]$ ]]; then
-    TELEGRAM_BOT_TOKEN="$(ask_secret "TELEGRAM_BOT_TOKEN" "${TELEGRAM_BOT_TOKEN:-}")"
+    TELEGRAM_BOT_TOKEN="$(ask "TELEGRAM_BOT_TOKEN" "${TELEGRAM_BOT_TOKEN:-}")"
   fi
 
   yn="$(confirm_yesno "是否配置飞书?" "N")"
   if [[ "$yn" =~ ^[Yy]$ ]]; then
     FEISHU_APP_ID="$(ask "FEISHU_APP_ID" "${FEISHU_APP_ID:-}")"
-    FEISHU_APP_SECRET="$(ask_secret "FEISHU_APP_SECRET" "${FEISHU_APP_SECRET:-}")"
+    FEISHU_APP_SECRET="$(ask "FEISHU_APP_SECRET" "${FEISHU_APP_SECRET:-}")"
   fi
 
   yn="$(confirm_yesno "是否配置钉钉?" "N")"
   if [[ "$yn" =~ ^[Yy]$ ]]; then
     DINGTALK_CLIENT_ID="$(ask "DINGTALK_CLIENT_ID" "${DINGTALK_CLIENT_ID:-}")"
-    DINGTALK_CLIENT_SECRET="$(ask_secret "DINGTALK_CLIENT_SECRET" "${DINGTALK_CLIENT_SECRET:-}")"
+    DINGTALK_CLIENT_SECRET="$(ask "DINGTALK_CLIENT_SECRET" "${DINGTALK_CLIENT_SECRET:-}")"
     DINGTALK_ROBOT_CODE="$(ask "DINGTALK_ROBOT_CODE（默认=CLIENT_ID）" "${DINGTALK_ROBOT_CODE:-$DINGTALK_CLIENT_ID}")"
     DINGTALK_CORP_ID="$(ask "DINGTALK_CORP_ID（可留空）" "${DINGTALK_CORP_ID:-}")"
     DINGTALK_AGENT_ID="$(ask "DINGTALK_AGENT_ID（可留空）" "${DINGTALK_AGENT_ID:-}")"
@@ -820,13 +820,13 @@ prompt_env_collect() {
   yn="$(confirm_yesno "是否配置 QQ 机器人?" "N")"
   if [[ "$yn" =~ ^[Yy]$ ]]; then
     QQBOT_APP_ID="$(ask "QQBOT_APP_ID" "${QQBOT_APP_ID:-}")"
-    QQBOT_CLIENT_SECRET="$(ask_secret "QQBOT_CLIENT_SECRET" "${QQBOT_CLIENT_SECRET:-}")"
+    QQBOT_CLIENT_SECRET="$(ask "QQBOT_CLIENT_SECRET" "${QQBOT_CLIENT_SECRET:-}")"
   fi
 
   yn="$(confirm_yesno "是否配置企业微信?" "N")"
   if [[ "$yn" =~ ^[Yy]$ ]]; then
     WECOM_TOKEN="$(ask "WECOM_TOKEN" "${WECOM_TOKEN:-}")"
-    WECOM_ENCODING_AES_KEY="$(ask_secret "WECOM_ENCODING_AES_KEY" "${WECOM_ENCODING_AES_KEY:-}")"
+    WECOM_ENCODING_AES_KEY="$(ask "WECOM_ENCODING_AES_KEY" "${WECOM_ENCODING_AES_KEY:-}")"
   fi
 
   # Generate random Gateway Token for security
