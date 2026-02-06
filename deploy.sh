@@ -15,10 +15,10 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Icons
-ICON_RUNNING="⏳"
-ICON_SUCCESS="✅"
-ICON_ERROR="❌"
-ICON_WARN="⚠️"
+ICON_RUNNING="*"
+ICON_SUCCESS="+"
+ICON_ERROR="x"
+ICON_WARN="!"
 
 log() { printf "${BLUE}[ %s ]${NC} [openclaw] %s\n" "$ICON_RUNNING" "$*"; }
 warn() { printf "${YELLOW}[ %s ]${NC} [openclaw] 警告: %s\n" "$ICON_WARN" "$*" >&2; }
