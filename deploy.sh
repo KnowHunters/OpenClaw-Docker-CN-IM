@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-11"
+SCRIPT_VERSION="2026.2.6-12"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -174,8 +174,25 @@ detect_os() {
     . /etc/os-release
     name="${NAME:-$ID}"
     ver="${VERSION_ID:-$VERSION}"
+    OS_ID="$ID"
+    OS_CODENAME="${VERSION_CODENAME:-}"
+    # Fallback for systems without VERSION_CODENAME (like older CentOS)
+    if [ -z "$OS_CODENAME" ]; then
+      OS_CODENAME="$VERSION_ID"
+    fi
   fi
-  log "检测到系统: ${name} ${ver}"
+  
+  if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+    SUDO_CMD=""
+  else
+    if ! command -v sudo >/dev/null 2>&1; then
+      err "非 root 用户且未找到 sudo，无法继续"
+      exit 1
+    fi
+    SUDO_CMD="sudo"
+  fi
+  
+  log "检测到系统: ${name} ${ver} (ID=$OS_ID, CODENAME=$OS_CODENAME)"
 }
 
 check_network() {
@@ -353,14 +370,18 @@ install_docker() {
 
   if need_cmd apt-get; then
     require_sudo
-    execute_task "安装 Docker 依赖" sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
-    execute_task "安装基础工具" sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg
-    sudo install -m 0755 -d /etc/apt/keyrings
-    execute_task "添加 Docker GPG 密钥" bash -c "curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes"
-    sudo chmod a+r /etc/apt/keyrings/docker.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
-    execute_task "更新软件源 (Docker)" sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
-    execute_task "安装 Docker Engine" sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    execute_task "安装 Docker 依赖" $SUDO_CMD DEBIAN_FRONTEND=noninteractive apt-get update -y
+    execute_task "安装基础工具" $SUDO_CMD DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg
+    $SUDO_CMD install -m 0755 -d /etc/apt/keyrings
+    
+    # Fix: Use OS_ID and SUDO_CMD. Remove complex subshell that fails interpretation.
+    execute_task "添加 Docker GPG 密钥" bash -c "curl -fsSL https://download.docker.com/linux/$OS_ID/gpg | $SUDO_CMD gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes"
+    $SUDO_CMD chmod a+r /etc/apt/keyrings/docker.gpg
+    
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$OS_ID $OS_CODENAME stable" | $SUDO_CMD tee /etc/apt/sources.list.d/docker.list >/dev/null
+    
+    execute_task "更新软件源 (Docker)" $SUDO_CMD DEBIAN_FRONTEND=noninteractive apt-get update -y
+    execute_task "安装 Docker Engine" $SUDO_CMD DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     return
   fi
 
