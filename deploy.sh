@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-45"
+SCRIPT_VERSION="2026.2.6-46"
 
 
 # Initialize log file
@@ -1533,6 +1533,10 @@ openclaw_cli_menu() {
 
     case "$choice" in
       0)
+        echo ""
+        echo -e "${YELLOW}⚠️  即将进入全屏聊天模式，按 Ctrl+C 可随时退出返回菜单${NC}"
+        echo ""
+        read -r -p "按回车键继续..."
         log_info "启动终端聊天界面 (按 Ctrl+C 退出)..."
         docker exec -it "$container_name" openclaw tui
         ;;
