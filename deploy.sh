@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-25"
+SCRIPT_VERSION="2026.2.6-26"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -768,9 +768,8 @@ prompt_env_collect() {
     warn "BASE_URL 格式不正确（需 http/https 开头）"
   done
   
-  # Generate a random default key if not set
-  local default_key="sk-$(openssl rand -hex 12 2>/dev/null || date +%s | md5sum | cut -c 1-24)"
-  API_KEY="$(ask_secret "API 密钥 API_KEY" "${API_KEY:-$default_key}")"
+  # API_KEY should be provided by user, no random default
+  API_KEY="$(ask_secret "API 密钥 API_KEY" "${API_KEY:-}")"
   
   if [ -z "$API_KEY" ]; then
     warn "API_KEY 为空，可能导致无法调用模型"
@@ -822,7 +821,9 @@ prompt_env_collect() {
     WECOM_ENCODING_AES_KEY="$(ask_secret "WECOM_ENCODING_AES_KEY" "${WECOM_ENCODING_AES_KEY:-}")"
   fi
 
-  OPENCLAW_GATEWAY_TOKEN="$(ask "网关 Token OPENCLAW_GATEWAY_TOKEN" "${OPENCLAW_GATEWAY_TOKEN:-123456}")"
+  # Generate random Gateway Token for security
+  local default_gw_token="$(openssl rand -hex 16 2>/dev/null || date +%s | md5sum | cut -c 1-32)"
+  OPENCLAW_GATEWAY_TOKEN="$(ask "网关 Token OPENCLAW_GATEWAY_TOKEN" "${OPENCLAW_GATEWAY_TOKEN:-$default_gw_token}")"
   OPENCLAW_GATEWAY_BIND="$(ask "网关绑定 OPENCLAW_GATEWAY_BIND" "${OPENCLAW_GATEWAY_BIND:-lan}")"
   while true; do
     OPENCLAW_GATEWAY_PORT="$(ask "网关端口 OPENCLAW_GATEWAY_PORT" "${OPENCLAW_GATEWAY_PORT:-18789}")"
