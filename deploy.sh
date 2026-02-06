@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-36"
+SCRIPT_VERSION="2026.2.6-37"
 
 
 # Initialize log file
@@ -1451,6 +1451,14 @@ load_current_config() {
 }
 
 diagnostic_check() {
+  # Load configuration to ensure variables like OPENCLAW_GATEWAY_PORT are set
+  if [ -f "$INSTALL_DIR/.env" ]; then
+    # Source directly to avoid noise, or use load_current_config function
+    set -a
+    source "$INSTALL_DIR/.env"
+    set +a
+  fi
+
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
   echo -e "${GRAY}  OpenClaw 智能诊断                                        ${NC}"
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
