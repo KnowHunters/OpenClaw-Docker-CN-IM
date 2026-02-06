@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-39"
+SCRIPT_VERSION="2026.2.6-40"
 
 
 # Initialize log file
@@ -1558,9 +1558,33 @@ openclaw_cli_menu() {
         ;;
     esac
   done
+  done
+}
+
+get_gateway_status() {
+  if ! need_cmd docker; then
+    echo -e "${RED}[🔴 Error] Docker 未安装${NC}"
+    return
+  fi
+  
+  if docker ps --format '{{.Names}}' | grep -q "^openclaw-gateway$"; then
+    echo -e "${GREEN}[🟢 运行中] 网关服务${NC} (Port: ${OPENCLAW_GATEWAY_PORT:-18789})"
+  # Check if container exists but stopped
+  elif docker ps -a --format '{{.Names}}' | grep -q "^openclaw-gateway$"; then
+    echo -e "${RED}[🔴 已停止] 网关服务${NC}"
+  else
+    echo -e "${GRAY}[⚪ 未安装] 网关服务${NC}"
+  fi
 }
 
 main_menu() {
+  # Load env to display port info
+  if [ -f "$INSTALL_DIR/.env" ]; then
+    set -a
+    source "$INSTALL_DIR/.env" 2>/dev/null
+    set +a
+  fi
+
   while true; do
     clear
     echo -e "${BLUE}
@@ -1574,6 +1598,7 @@ main_menu() {
          |_|   Dashboard & Installer ${GRAY}v$SCRIPT_VERSION${NC}
 "
     echo "当前安装目录: $INSTALL_DIR"
+    echo "$(get_gateway_status)"
     echo ""
     echo " [1] 全新安装 / 强制重装"
     echo " [2] 修改当前配置 (重启服务)"
