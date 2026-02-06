@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-17"
+SCRIPT_VERSION="2026.2.6-18"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -757,7 +757,11 @@ prompt_env_collect() {
     fi
     warn "BASE_URL 格式不正确（需 http/https 开头）"
   done
-  API_KEY="$(ask_secret "API 密钥 API_KEY" "${API_KEY:-}")"
+  
+  # Generate a random default key if not set
+  local default_key="sk-$(openssl rand -hex 12 2>/dev/null || date +%s | md5sum | cut -c 1-24)"
+  API_KEY="$(ask_secret "API 密钥 API_KEY" "${API_KEY:-$default_key}")"
+  
   if [ -z "$API_KEY" ]; then
     warn "API_KEY 为空，可能导致无法调用模型"
   fi
