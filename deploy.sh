@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.7-10"
+SCRIPT_VERSION="2026.2.7-11"
 
 
 # Initialize log file
@@ -1843,6 +1843,66 @@ get_gateway_status() {
   fi
 }
 
+get_all_services_status() {
+  if ! need_cmd docker; then
+    echo -e "${RED}[🔴 Error] Docker 未安装${NC}"
+    return
+  fi
+  
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${GRAY}  服务状态                                                 ${NC}"
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  
+  # 1. OpenClaw Gateway
+  get_gateway_status
+  
+  # 2. AIClient-2-API
+  if docker ps --format '{{.Names}}' | grep -q "^aiclient$"; then
+    if curl -s -m 1 --connect-timeout 1 "http://localhost:3000" >/dev/null 2>&1; then
+      echo -e "${GREEN}[🟢 运行中] AIClient-2-API${NC} (Port: 3000)"
+    else
+      echo -e "${YELLOW}[🟡 启动中] AIClient-2-API${NC}"
+    fi
+  elif docker ps -a --format '{{.Names}}' | grep -q "^aiclient$"; then
+    echo -e "${RED}[🔴 已停止] AIClient-2-API${NC}"
+  fi
+  
+  # 3. FileBrowser
+  if docker ps --format '{{.Names}}' | grep -q "filebrowser"; then
+    local fb_port="${FILEBROWSER_PORT:-8080}"
+    if curl -s -m 1 --connect-timeout 1 "http://localhost:$fb_port" >/dev/null 2>&1; then
+      echo -e "${GREEN}[🟢 运行中] FileBrowser${NC} (Port: $fb_port)"
+    else
+      echo -e "${YELLOW}[🟡 启动中] FileBrowser${NC}"
+    fi
+  elif docker ps -a --format '{{.Names}}' | grep -q "filebrowser"; then
+    echo -e "${RED}[🔴 已停止] FileBrowser${NC}"
+  fi
+  
+  # 4. ZeroTier
+  if docker ps --format '{{.Names}}' | grep -q "zerotier"; then
+    echo -e "${GREEN}[🟢 运行中] ZeroTier${NC}"
+  elif docker ps -a --format '{{.Names}}' | grep -q "zerotier"; then
+    echo -e "${RED}[🔴 已停止] ZeroTier${NC}"
+  fi
+  
+  # 5. Tailscale
+  if docker ps --format '{{.Names}}' | grep -q "tailscale"; then
+    echo -e "${GREEN}[🟢 运行中] Tailscale${NC}"
+  elif docker ps -a --format '{{.Names}}' | grep -q "tailscale"; then
+    echo -e "${RED}[🔴 已停止] Tailscale${NC}"
+  fi
+  
+  # 6. Cloudflare Tunnel
+  if docker ps --format '{{.Names}}' | grep -q "cloudflared"; then
+    echo -e "${GREEN}[🟢 运行中] Cloudflare Tunnel${NC}"
+  elif docker ps -a --format '{{.Names}}' | grep -q "cloudflared"; then
+    echo -e "${RED}[🔴 已停止] Cloudflare Tunnel${NC}"
+  fi
+  
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+}
+
 main_menu() {
   # Load env to display port info
   if [ -f "$INSTALL_DIR/.env" ]; then
@@ -1864,7 +1924,8 @@ main_menu() {
          |_|   Dashboard & Installer ${GRAY}v$SCRIPT_VERSION${NC}
 "
     echo "当前安装目录: $INSTALL_DIR"
-    echo "$(get_gateway_status)"
+    echo ""
+    get_all_services_status
     echo ""
     echo " [1] 全新安装 / 强制重装"
     echo " [2] 修改当前配置 (重启服务)"
