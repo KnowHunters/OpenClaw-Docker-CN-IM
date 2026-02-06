@@ -122,9 +122,12 @@ detect_os() {
 }
 
 check_network() {
+  log "正在检查网络连接..."
   if need_cmd curl; then
-    if ! curl -fsSL https://github.com >/dev/null 2>&1; then
+    if ! curl -fsSL --connect-timeout 5 https://github.com >/dev/null 2>&1; then
       warn "无法访问 GitHub，请检查网络或代理"
+    else
+      ok "网络连接正常"
     fi
   fi
 }
@@ -198,6 +201,7 @@ EOF
 require_sudo() {
   if [ "${EUID:-$(id -u)}" -ne 0 ]; then
     if need_cmd sudo; then
+      log "正在请求 sudo 权限..."
       sudo -v
     else
       log "未检测到 sudo，请使用 root 用户运行脚本"
