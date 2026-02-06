@@ -18,11 +18,17 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-8"
+SCRIPT_VERSION="2026.2.6-9"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
 : > "$LOG_FILE"
+
+HAS_TUI=0
+use_tui=0
+CURRENT_STEP="init"
+STEP_PERCENT=0
+RETRY_MAX=3
 
 # ════════════════════ 交互函数 ════════════════════
 
