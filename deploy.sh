@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-46"
+SCRIPT_VERSION="2026.2.6-47"
 
 
 # Initialize log file
@@ -48,6 +48,10 @@ on_error() {
 }
 
 trap on_error ERR
+
+pause_key() {
+  read -r -p "按任意键继续..."
+}
 
 validate_url() {
   [[ "$1" =~ ^https?:// ]]
