@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-6"
+SCRIPT_VERSION="2026.2.6-7"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -117,6 +117,10 @@ warn() { log_warn "$1"; }
 err() { log_error "$1"; }
 ok() { log_ok "$1"; }
 execute_task() { run_step "$1" "${*:2}"; }
+
+need_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+is_tty() { [ -t 0 ] && [ -t 1 ]; }
 
 detect_os() {
   local name="unknown"
