@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-20"
+SCRIPT_VERSION="2026.2.6-21"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -1017,9 +1017,21 @@ show_next_steps() {
     fi
   fi
   log "访问提示："
-  log "局域网访问: http://$ip:$OPENCLAW_GATEWAY_PORT"
-  log "本机访问: http://127.0.0.1:$OPENCLAW_GATEWAY_PORT"
-  log "Token: $OPENCLAW_GATEWAY_TOKEN"
+  log "局域网访问: http://$ip:$OPENCLAW_GATEWAY_PORT/?token=$OPENCLAW_GATEWAY_TOKEN"
+  log "本机访问: http://127.0.0.1:$OPENCLAW_GATEWAY_PORT/?token=$OPENCLAW_GATEWAY_TOKEN"
+  log "Gateway Token: $OPENCLAW_GATEWAY_TOKEN (已包含在链接中)"
+
+  if [ "${INSTALL_AICLIENT:-0}" -eq 1 ]; then
+    log ""
+    log "AIClient-2-API (模型接入): http://$ip:3000"
+    log "默认账号: admin / admin123"
+  fi
+  
+  if [ "${INSTALL_FILEBROWSER:-0}" -eq 1 ]; then
+    log ""
+    log "FileBrowser (文件管理): http://$ip:$FILEBROWSER_PORT"
+    log "默认账号: admin / admin"
+  fi
 }
 
 collect_logs_bundle() {
