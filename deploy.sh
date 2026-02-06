@@ -20,7 +20,7 @@ ICON_SUCCESS="+"
 ICON_ERROR="x"
 ICON_WARN="!"
 
-SCRIPT_VERSION="2026.2.6-4"
+SCRIPT_VERSION="2026.2.6-5"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -145,10 +145,10 @@ detect_cloud() {
 }
 
 detect_tui() {
-  if need_cmd whiptail && is_tty; then
-    HAS_TUI=1
-    use_tui=1
-  fi
+  # Force disable TUI for stability in curl-pipe scenarios
+  # Text-based prompts with our new elegant logging are preferred
+  HAS_TUI=0
+  use_tui=0
 }
 
 detect_os() {
