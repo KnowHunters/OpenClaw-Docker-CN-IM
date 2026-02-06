@@ -32,6 +32,13 @@ need_cmd() { command -v "$1" >/dev/null 2>&1; }
 is_tty() { [ -t 0 ] && [ -t 1 ]; }
 
 # Main execution start
+# Try to re-attach to TTY for interactive usage
+if [ ! -t 0 ] && [ -t 1 ]; then
+  if [ -r /dev/tty ]; then
+    exec < /dev/tty
+  fi
+fi
+
 log "OpenClaw Deployment Script v$SCRIPT_VERSION"
 
 HAS_TUI=0
@@ -918,11 +925,17 @@ main() {
   detect_os
   install_git_curl
   check_network
+  
+  log "检查 TUI 环境..."
   install_tui
   detect_tui
+  
+  log "显示欢迎界面..."
   pretty_header
+  
   prompt_basic_settings
   check_self_update
+  
   gauge 20 "环境准备完成，开始安装 Docker"
   install_docker
   configure_docker_proxy
