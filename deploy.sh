@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-54"
+SCRIPT_VERSION="2026.2.6-55"
 
 
 # Initialize log file

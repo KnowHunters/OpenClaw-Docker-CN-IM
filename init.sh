@@ -338,7 +338,7 @@ EOF
       "wecom": {
         "source": "npm",
         "spec": "https://github.com/sunnoy/openclaw-plugin-wecom.git",
-        "installPath": "/home/node/.openclaw/extensions/wecom",
+        "installPath": "/home/node/.openclaw/extensions/openclaw-plugin-wecom",
         "installedAt": "$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"
       }
 EOF
