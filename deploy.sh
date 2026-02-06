@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-19"
+SCRIPT_VERSION="2026.2.6-20"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -931,6 +931,14 @@ OPENCLAW_GATEWAY_PORT=$OPENCLAW_GATEWAY_PORT
 OPENCLAW_BRIDGE_PORT=$OPENCLAW_BRIDGE_PORT
 EOF
 
+  # Compose 文件加载顺序
+  local compose_files="docker-compose.yml:docker-compose.override.yml"
+  # 只有当安装了网络组件时才追加 network 文件
+  if [ "${INSTALL_ZEROTIER:-0}" -eq 1 ] || [ "${INSTALL_TAILSCALE:-0}" -eq 1 ] || [ "${INSTALL_CLOUDFLARED:-0}" -eq 1 ] || [ "${INSTALL_FILEBROWSER:-0}" -eq 1 ] || [ "${INSTALL_AICLIENT:-0}" -eq 1 ]; then
+    compose_files="$compose_files:docker-compose.network.yml"
+  fi
+  echo "COMPOSE_FILE=$compose_files" >> "$INSTALL_DIR/.env"
+
   log ".env 已生成: $INSTALL_DIR/.env"
 }
 
@@ -1106,6 +1114,152 @@ main() {
   if [[ "$(confirm_yesno "是否生成日志包用于排障？" "N")" =~ ^[Yy]$ ]]; then
     collect_logs_bundle
   fi
+  fi
+}
+
+prompt_network_tools() {
+  log "开始配置网络增强组件 (可选)"
+  
+  # ZeroTier
+  if [[ "$(confirm_yesno "是否安装 ZeroTier (异地组网)?" "N")" =~ ^[Yy]$ ]]; then
+    INSTALL_ZEROTIER=1
+    ZEROTIER_ID="$(ask "ZeroTier Network ID (留空仅安装不加入)" "")"
+  else
+    INSTALL_ZEROTIER=0
+  fi
+  
+  # Tailscale
+  if [[ "$(confirm_yesno "是否安装 Tailscale (推荐组网神器)?" "N")" =~ ^[Yy]$ ]]; then
+    INSTALL_TAILSCALE=1
+    TAILSCALE_AUTHKEY="$(ask_secret "Tailscale Auth Key (留空需手动登录)" "")"
+  else
+    INSTALL_TAILSCALE=0
+  fi
+  
+  # Cloudflare Tunnel
+  if [[ "$(confirm_yesno "是否安装 Cloudflare Tunnel (内网穿透)?" "N")" =~ ^[Yy]$ ]]; then
+    INSTALL_CLOUDFLARED=1
+    CLOUDFLARED_TOKEN="$(ask_secret "Cloudflare Tunnel Token (必填)" "")"
+    if [ -z "$CLOUDFLARED_TOKEN" ]; then
+      warn "未提供 Token，将跳过 Cloudflare Tunnel 安装"
+      INSTALL_CLOUDFLARED=0
+    fi
+  else
+    INSTALL_CLOUDFLARED=0
+  fi
+  
+  # FileBrowser
+  if [[ "$(confirm_yesno "是否安装 FileBrowser (网页文件管理)?" "N")" =~ ^[Yy]$ ]]; then
+    INSTALL_FILEBROWSER=1
+    FILEBROWSER_PORT="$(ask "FileBrowser 端口" "8080")"
+  else
+    INSTALL_FILEBROWSER=0
+  fi
+
+  # AIClient-2-API
+  if [[ "$(confirm_yesno "是否安装 AIClient-2-API (统一模型接入中间件)?" "N")" =~ ^[Yy]$ ]]; then
+    INSTALL_AICLIENT=1
+    log_info "AIClient-2-API 将使用 Host 网络模式，默认管理端口 3000"
+  else
+    INSTALL_AICLIENT=0
+  fi
+}
+
+generate_network_compose() {
+  if [ "$INSTALL_ZEROTIER" -eq 0 ] && [ "$INSTALL_TAILSCALE" -eq 0 ] && [ "$INSTALL_CLOUDFLARED" -eq 0 ] && [ "$INSTALL_FILEBROWSER" -eq 0 ] && [ "$INSTALL_AICLIENT" -eq 0 ]; then
+    return
+  fi
+  
+  log "正在生成网络组件配置..."
+  cat > "$INSTALL_DIR/docker-compose.network.yml" <<EOF
+services:
+EOF
+
+  if [ "$INSTALL_ZEROTIER" -eq 1 ]; then
+    cat >> "$INSTALL_DIR/docker-compose.network.yml" <<EOF
+  zerotier:
+    image: zerotier/zerotier:latest
+    container_name: zerotier
+    restart: always
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./zerotier-data:/var/lib/zerotier-one
+    ${ZEROTIER_ID:+environment:
+      - ZEROTIER_JOIN_NETWORKS=$ZEROTIER_ID}
+
+EOF
+  fi
+
+  if [ "$INSTALL_TAILSCALE" -eq 1 ]; then
+    cat >> "$INSTALL_DIR/docker-compose.network.yml" <<EOF
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale
+    restart: always
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    volumes:
+      - ./tailscale-data:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - TS_STATE_DIR=/var/lib/tailscale
+      ${TAILSCALE_AUTHKEY:+- TS_AUTHKEY=$TAILSCALE_AUTHKEY}
+      - TS_USERSPACE=false
+
+EOF
+  fi
+
+  if [ "$INSTALL_CLOUDFLARED" -eq 1 ]; then
+    cat >> "$INSTALL_DIR/docker-compose.network.yml" <<EOF
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: always
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=$CLOUDFLARED_TOKEN
+
+EOF
+  fi
+  
+  if [ "$INSTALL_FILEBROWSER" -eq 1 ]; then
+    cat >> "$INSTALL_DIR/docker-compose.network.yml" <<EOF
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    container_name: filebrowser
+    restart: always
+    user: "0:0"
+    ports:
+      - "$FILEBROWSER_PORT:80"
+    volumes:
+      - ./:/srv
+      - ./filebrowser.db:/database.db
+
+EOF
+  fi
+
+  if [ "$INSTALL_AICLIENT" -eq 1 ]; then
+    cat >> "$INSTALL_DIR/docker-compose.network.yml" <<EOF
+  aiclient:
+    image: justlikemaki/aiclient-2-api:latest
+    container_name: aiclient
+    restart: always
+    network_mode: host
+    volumes:
+      - ./aiclient-data:/app/configs
+    # Host mode uses ports directly: 3000 (UI), 8085-8087 (OAuth), etc.
+
+EOF
+  fi
+  
+  ok "已生成 docker-compose.network.yml"
 }
 
 wizard_nav() {
