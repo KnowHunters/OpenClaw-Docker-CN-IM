@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-28"
+SCRIPT_VERSION="2026.2.6-29"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -1085,7 +1085,7 @@ main() {
     exit 1
   fi
 
-  welcome_banner
+
   print_banner
   
   CURRENT_STEP="prepare"
