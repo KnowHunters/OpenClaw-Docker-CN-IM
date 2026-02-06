@@ -20,7 +20,7 @@ ICON_SUCCESS="+"
 ICON_ERROR="x"
 ICON_WARN="!"
 
-SCRIPT_VERSION="2026.2.6-1"
+SCRIPT_VERSION="2026.2.6-2"
 
 log() { printf "${BLUE}[ %s ]${NC} [openclaw] %s\n" "$ICON_RUNNING" "$*"; }
 warn() { printf "${YELLOW}[ %s ]${NC} [openclaw] 警告: %s\n" "$ICON_WARN" "$*" >&2; }
