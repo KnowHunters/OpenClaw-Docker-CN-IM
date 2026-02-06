@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-57"
+SCRIPT_VERSION="2026.2.7-1"
 
 
 # Initialize log file
@@ -269,20 +269,48 @@ EOF
 configure_docker_mirror() {
   local cloud
   cloud="$(detect_cloud)"
-  local choice
-  choice="$(confirm_yesno "是否为 Docker 配置镜像加速？" "Y")"
-  if [[ ! "$choice" =~ ^[Yy]$ ]]; then
-    return
-  fi
+  
+  # 根据云服务商自动决定是否需要镜像加速
+  local needs_mirror=false
   local mirrors=""
+  
   case "$cloud" in
-    aliyun) mirrors="https://registry.cn-hangzhou.aliyuncs.com" ;;
-    tencent) mirrors="https://mirror.ccs.tencentyun.com" ;;
-    huawei) mirrors="https://repo.huaweicloud.com" ;;
-    *)
-      mirrors="https://registry.docker-cn.com"
+    aliyun)
+      needs_mirror=true
+      mirrors="https://registry.cn-hangzhou.aliyuncs.com"
+      log_info "检测到阿里云环境，自动配置镜像加速"
+      ;;
+    tencent)
+      needs_mirror=true
+      mirrors="https://mirror.ccs.tencentyun.com"
+      log_info "检测到腾讯云环境，自动配置镜像加速"
+      ;;
+    huawei)
+      needs_mirror=true
+      mirrors="https://repo.huaweicloud.com"
+      log_info "检测到华为云环境，自动配置镜像加速"
+      ;;
+    aws|azure|gcp)
+      log_info "检测到境外云环境 ($cloud)，跳过镜像加速配置"
+      return
+      ;;
+    unknown)
+      # 未知环境，询问用户
+      local choice
+      choice="$(confirm_yesno "是否为 Docker 配置镜像加速？" "N")"
+      if [[ "$choice" =~ ^[Yy]$ ]]; then
+        needs_mirror=true
+        mirrors="https://registry.docker-cn.com"
+      else
+        return
+      fi
       ;;
   esac
+  
+  if [ "$needs_mirror" = false ]; then
+    return
+  fi
+  
   require_sudo
   sudo mkdir -p /etc/docker
   if [ -f /etc/docker/daemon.json ] && need_cmd jq; then
@@ -293,7 +321,7 @@ configure_docker_mirror() {
       sudo cp /etc/docker/daemon.json /etc/docker/daemon.json.bak
       warn "已备份原配置到 /etc/docker/daemon.json.bak"
     fi
-    sudo tee /etc/docker/daemon.json >/dev/null <<EOF
+    sudo tee /etc/docker/daemon.json > /dev/null <<EOF
 {
   "registry-mirrors": ["$mirrors"]
 }
