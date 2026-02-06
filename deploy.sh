@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-18"
+SCRIPT_VERSION="2026.2.6-19"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -1072,7 +1072,14 @@ main() {
   
   echo ""
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
-  echo -e "${GRAY}  [3/5] 代码获取                                           ${NC}"
+  echo -e "${GRAY}  [3/6] 网络配置 (可选)                                    ${NC}"
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  
+  prompt_network_tools
+
+  echo ""
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${GRAY}  [4/6] 代码获取                                           ${NC}"
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
   
   confirm_summary
@@ -1080,18 +1087,19 @@ main() {
   
   echo ""
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
-  echo -e "${GRAY}  [4/5] 构建与启动                                         ${NC}"
+  echo -e "${GRAY}  [5/6] 构建与启动                                         ${NC}"
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
   
   write_summary_file
   write_env_file
   generate_override_file
+  generate_network_compose
   build_and_up
   health_check
   
   echo ""
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
-  echo -e "${GRAY}  [5/5] 部署完成                                           ${NC}"
+  echo -e "${GRAY}  [6/6] 部署完成                                           ${NC}"
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
   
   show_next_steps
@@ -1145,6 +1153,19 @@ run_wizard() {
         fi
         ;;
       3)
+        CURRENT_STEP="network"
+        prompt_network_tools
+        if [ "$use_tui" -eq 1 ]; then
+          case "$(wizard_nav "网络组件配置完成")" in
+            next) step=4 ;;
+            back) step=2 ;;
+            quit) exit 0 ;;
+          esac
+        else
+          step=4
+        fi
+        ;;
+      4)
         CURRENT_STEP="preview"
         show_textbox "配置预览" "$(env_preview_text)"
         if [ "$use_tui" -eq 1 ]; then
@@ -1158,7 +1179,7 @@ run_wizard() {
               write_env_file
               return
               ;;
-            back) step=2 ;;
+            back) step=3 ;;
             quit) exit 0 ;;
           esac
         else
@@ -1168,7 +1189,7 @@ run_wizard() {
             write_env_file
             return
           else
-            step=2
+            step=3
           fi
         fi
         ;;
