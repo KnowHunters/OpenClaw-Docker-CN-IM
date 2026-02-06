@@ -20,12 +20,46 @@ ICON_SUCCESS="+"
 ICON_ERROR="x"
 ICON_WARN="!"
 
-SCRIPT_VERSION="2026.2.6-3"
+SCRIPT_VERSION="2026.2.6-4"
+LOG_FILE="/tmp/openclaw_deploy.log"
 
-log() { printf "${BLUE}[ %s ]${NC} [openclaw] %s\n" "$ICON_RUNNING" "$*"; }
-warn() { printf "${YELLOW}[ %s ]${NC} [openclaw] 警告: %s\n" "$ICON_WARN" "$*" >&2; }
-err() { printf "${RED}[ %s ]${NC} [openclaw] 错误: %s\n" "$ICON_ERROR" "$*" >&2; }
-ok() { printf "${GREEN}[ %s ]${NC} [openclaw] 完成: %s\n" "$ICON_SUCCESS" "$*"; }
+# Initialize log file
+: > "$LOG_FILE"
+
+log_file() { printf "[%s] %s\n" "$(date '+%H:%M:%S')" "$*" >> "$LOG_FILE"; }
+
+log() { 
+  printf "${BLUE}[ %s ]${NC} [openclaw] %s\n" "$ICON_RUNNING" "$*"
+  log_file "[INFO] $*"
+}
+warn() { 
+  printf "${YELLOW}[ %s ]${NC} [openclaw] 警告: %s\n" "$ICON_WARN" "$*" >&2
+  log_file "[WARN] $*"
+}
+err() { 
+  printf "${RED}[ %s ]${NC} [openclaw] 错误: %s\n" "$ICON_ERROR" "$*" >&2
+  log_file "[ERROR] $*"
+}
+ok() { 
+  printf "${GREEN}[ %s ]${NC} [openclaw] 完成: %s\n" "$ICON_SUCCESS" "$*"
+  log_file "[OK] $*"
+}
+
+# Function to execute a command with a spinner or progress indication
+execute_task() {
+  local msg="$1"
+  shift
+  local cmd=("$@")
+  
+  log "$msg..."
+  
+  if "${cmd[@]}" >> "$LOG_FILE" 2>&1; then
+    ok "$msg 完成"
+  else
+    err "$msg 失败，请查看日志: $LOG_FILE"
+    return 1
+  fi
+}
 
 need_cmd() { command -v "$1" >/dev/null 2>&1; }
 
@@ -221,44 +255,36 @@ pkg_install() {
   local pkgs=("$@")
   if need_cmd apt-get; then
     require_sudo
-    log "正在更新软件源..."
-    sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
-    log "正在安装依赖: ${pkgs[*]}..."
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" "${pkgs[@]}"
-    log "依赖安装完成"
+    execute_task "正在更新软件源" sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
+    execute_task "正在安装依赖 (${pkgs[*]})" sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" "${pkgs[@]}"
     return
   fi
   if need_cmd dnf; then
     require_sudo
-    log "正在安装依赖: ${pkgs[*]}..."
-    sudo dnf install -y "${pkgs[@]}"
+    execute_task "正在安装依赖 (${pkgs[*]})" sudo dnf install -y "${pkgs[@]}"
     return
   fi
   if need_cmd yum; then
     require_sudo
-    log "正在安装依赖: ${pkgs[*]}..."
-    sudo yum install -y "${pkgs[@]}"
+    execute_task "正在安装依赖 (${pkgs[*]})" sudo yum install -y "${pkgs[@]}"
     return
   fi
   if need_cmd zypper; then
     require_sudo
-    log "正在安装依赖: ${pkgs[*]}..."
-    sudo zypper --non-interactive install "${pkgs[@]}"
+    execute_task "正在安装依赖 (${pkgs[*]})" sudo zypper --non-interactive install "${pkgs[@]}"
     return
   fi
   if need_cmd pacman; then
     require_sudo
-    log "正在安装依赖: ${pkgs[*]}..."
-    sudo pacman -Sy --noconfirm "${pkgs[@]}"
+    execute_task "正在安装依赖 (${pkgs[*]})" sudo pacman -Sy --noconfirm "${pkgs[@]}"
     return
   fi
   if need_cmd apk; then
     require_sudo
-    log "正在安装依赖: ${pkgs[*]}..."
-    sudo apk add --no-cache "${pkgs[@]}"
+    execute_task "正在安装依赖 (${pkgs[*]})" sudo apk add --no-cache "${pkgs[@]}"
     return
   fi
-  log "未识别到受支持的包管理器，请手动安装依赖"
+  err "未识别到受支持的包管理器，请手动安装依赖"
   exit 1
 }
 
@@ -311,48 +337,48 @@ install_docker() {
 
   if need_cmd apt-get; then
     require_sudo
-    sudo apt-get update -y
-    sudo apt-get install -y ca-certificates curl gnupg
+    execute_task "安装 Docker 依赖" sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
+    execute_task "安装基础工具" sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg
     sudo install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    execute_task "添加 Docker GPG 密钥" bash -c "curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes"
     sudo chmod a+r /etc/apt/keyrings/docker.gpg
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
-    sudo apt-get update -y
-    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    execute_task "更新软件源 (Docker)" sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
+    execute_task "安装 Docker Engine" sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     return
   fi
 
   if need_cmd dnf; then
     require_sudo
-    sudo dnf -y install dnf-plugins-core
-    sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
-    sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    execute_task "安装 Docker 依赖" sudo dnf -y install dnf-plugins-core
+    execute_task "添加 Docker 源" sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+    execute_task "安装 Docker Engine" sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     return
   fi
 
   if need_cmd yum; then
     require_sudo
-    sudo yum install -y yum-utils
-    sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-    sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    execute_task "安装 Docker 依赖" sudo yum install -y yum-utils
+    execute_task "添加 Docker 源" sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+    execute_task "安装 Docker Engine" sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     return
   fi
 
   if need_cmd zypper; then
     require_sudo
-    sudo zypper --non-interactive install docker docker-compose
+    execute_task "安装 Docker" sudo zypper --non-interactive install docker docker-compose
     return
   fi
 
   if need_cmd pacman; then
     require_sudo
-    sudo pacman -Sy --noconfirm docker docker-compose
+    execute_task "安装 Docker" sudo pacman -Sy --noconfirm docker docker-compose
     return
   fi
 
   if need_cmd apk; then
     require_sudo
-    sudo apk add --no-cache docker docker-compose
+    execute_task "安装 Docker" sudo apk add --no-cache docker docker-compose
     return
   fi
 
