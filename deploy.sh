@@ -1080,42 +1080,44 @@ collect_logs_bundle() {
 }
 
 main() {
+  # Root check
+  if [ "$(id -u)" != "0" ]; then
+    warn "请使用 root 权限运行此脚本"
+    exit 1
+  fi
+
+  welcome_banner
   print_banner
-  
-  echo ""
-  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
-  echo -e "${GRAY}  [1/5] 环境准备                                           ${NC}"
-  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
   
   CURRENT_STEP="prepare"
   detect_os
   install_git_curl
   check_network
-  
-  # Removed TUI check as we force disable it for stability
-  # install_tui
-  # detect_tui
-  
-  log_info "初始化配置向导..."
-  # pretty_header
-  
-  prompt_basic_settings
   check_self_update
   
-  # Step 2: Env Configuration (Moved here from prompt_env_collect to be part of the flow)
-  prompt_env_collect
-  
+  # 如果已安装 (.env 存在)，显示主菜单
+  if [ -f "$INSTALL_DIR/.env" ]; then
+    main_menu
+  fi
+
   echo ""
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
-  echo -e "${GRAY}  [2/5] 安装 Docker                                        ${NC}"
+  echo -e "${GRAY}  [1/6] 环境准备                                           ${NC}"
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+
+  check_docker
+  detect_cloud
+  
+  # Initialize wizard steps
+  echo ""
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${GRAY}  [2/6] 基础配置                                           ${NC}"
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
   
-  install_docker
-  configure_docker_proxy
-  configure_docker_mirror
-  ensure_docker_running
-  ensure_compose
-  ensure_docker_permissions
+  prompt_basic_settings
+  
+  # Step 2: Env Configuration
+  prompt_env_collect
   
   echo ""
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
@@ -1153,7 +1155,6 @@ main() {
   if [[ "$(confirm_yesno "是否生成日志包用于排障？" "N")" =~ ^[Yy]$ ]]; then
     collect_logs_bundle
   fi
-
 }
 
 prompt_network_tools() {
