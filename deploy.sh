@@ -20,6 +20,8 @@ ICON_SUCCESS="+"
 ICON_ERROR="x"
 ICON_WARN="!"
 
+SCRIPT_VERSION="2026.2.6-1"
+
 log() { printf "${BLUE}[ %s ]${NC} [openclaw] %s\n" "$ICON_RUNNING" "$*"; }
 warn() { printf "${YELLOW}[ %s ]${NC} [openclaw] 警告: %s\n" "$ICON_WARN" "$*" >&2; }
 err() { printf "${RED}[ %s ]${NC} [openclaw] 错误: %s\n" "$ICON_ERROR" "$*" >&2; }
@@ -28,6 +30,9 @@ ok() { printf "${GREEN}[ %s ]${NC} [openclaw] 完成: %s\n" "$ICON_SUCCESS" "$*"
 need_cmd() { command -v "$1" >/dev/null 2>&1; }
 
 is_tty() { [ -t 0 ] && [ -t 1 ]; }
+
+# Main execution start
+log "OpenClaw Deployment Script v$SCRIPT_VERSION"
 
 HAS_TUI=0
 use_tui=0
