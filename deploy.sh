@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-15"
+SCRIPT_VERSION="2026.2.6-16"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -250,8 +250,8 @@ Environment="HTTPS_PROXY=${PROXY_HTTPS}"
 Environment="NO_PROXY=localhost,127.0.0.1"
 EOF
     if need_cmd systemctl; then
-      sudo systemctl daemon-reload
-      sudo systemctl restart docker
+      execute_task "重载系统服务配置" sudo systemctl daemon-reload
+      execute_task "重启 Docker 服务" sudo systemctl restart docker
     fi
     ok "已为 Docker 配置代理"
   fi
@@ -291,7 +291,7 @@ configure_docker_mirror() {
 EOF
   fi
   if need_cmd systemctl; then
-    sudo systemctl restart docker
+    execute_task "重启 Docker 服务" sudo systemctl restart docker
   fi
   ok "已配置 Docker 镜像加速: $mirrors"
 }
@@ -482,9 +482,9 @@ ensure_docker_permissions() {
 ensure_docker_running() {
   require_sudo
   if need_cmd systemctl; then
-    sudo systemctl enable --now docker
+    execute_task "启动 Docker 服务" sudo systemctl enable --now docker
   else
-    sudo service docker start || true
+    execute_task "启动 Docker 服务" sudo service docker start
   fi
 
   if ! docker info >/dev/null 2>&1; then
