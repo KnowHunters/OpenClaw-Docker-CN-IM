@@ -6,150 +6,117 @@ INSTALL_DIR_DEFAULT="$HOME/openclaw"
 BRANCH_DEFAULT="main"
 IMAGE_TAG_DEFAULT="openclaw-docker-cn-im:local"
 
-# Colors
+# ════════════════════ 颜色定义 ════════════════════
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+MAGENTA='\033[0;35m'
+GRAY='\033[0;90m'
+BOLD='\033[1m'
+NC='\033[0m'
 
-# Icons
-ICON_RUNNING="*"
-ICON_SUCCESS="+"
-ICON_ERROR="x"
-ICON_WARN="!"
-
-SCRIPT_VERSION="2026.2.6-5"
+# ════════════════════ 全局配置 ════════════════════
+SCRIPT_VERSION="2026.2.6-6"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
 : > "$LOG_FILE"
 
-log_file() { printf "[%s] %s\n" "$(date '+%H:%M:%S')" "$*" >> "$LOG_FILE"; }
+# ════════════════════ 交互函数 ════════════════════
 
-log() { 
-  printf "${BLUE}[ %s ]${NC} [openclaw] %s\n" "$ICON_RUNNING" "$*"
-  log_file "[INFO] $*"
-}
-warn() { 
-  printf "${YELLOW}[ %s ]${NC} [openclaw] 警告: %s\n" "$ICON_WARN" "$*" >&2
-  log_file "[WARN] $*"
-}
-err() { 
-  printf "${RED}[ %s ]${NC} [openclaw] 错误: %s\n" "$ICON_ERROR" "$*" >&2
-  log_file "[ERROR] $*"
-}
-ok() { 
-  printf "${GREEN}[ %s ]${NC} [openclaw] 完成: %s\n" "$ICON_SUCCESS" "$*"
-  log_file "[OK] $*"
-}
-
-# Function to execute a command with a spinner or progress indication
-execute_task() {
-  local msg="$1"
-  shift
-  local cmd=("$@")
-  
-  log "$msg..."
-  
-  if "${cmd[@]}" >> "$LOG_FILE" 2>&1; then
-    ok "$msg 完成"
-  else
-    err "$msg 失败，请查看日志: $LOG_FILE"
-    return 1
-  fi
+print_banner() {
+    echo -e "${CYAN}"
+    cat << 'EOF'
+    ╔══════════════════════════════════════════════════════════════════════════════╗
+    ║                                                                              ║
+    ║   ██████╗ ██████╗ ███████╗███╗   ██╗ ██████╗██╗      █████╗ ██╗    ██╗       ║
+    ║  ██╔═══██╗██╔══██╗██╔════╝████╗  ██║██╔════╝██║     ██╔══██╗██║    ██║       ║
+    ║  ██║   ██║██████╔╝█████╗  ██╔██╗ ██║██║     ██║     ███████║██║ █╗ ██║       ║
+    ║  ██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║██║     ██║     ██╔══██║██║███╗██║       ║
+    ║  ╚██████╔╝██║     ███████╗██║ ╚████║╚██████╗███████╗██║  ██║╚███╔███╔╝       ║
+    ║   ╚═════╝ ╚═╝     ╚══════╝╚╚═╝  ╚═══╝ ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝        ║
+    ║                                                                              ║
+    ║               Docker Deployment v${SCRIPT_VERSION}  by KnowHunters           ║
+    ╚══════════════════════════════════════════════════════════════════════════════╝
+EOF
+    echo -e "${NC}"
 }
 
-need_cmd() { command -v "$1" >/dev/null 2>&1; }
-
-is_tty() { [ -t 0 ] && [ -t 1 ]; }
-
-# Main execution start
-# Try to re-attach to TTY for interactive usage
-if [ ! -t 0 ] && [ -t 1 ]; then
-  if [ -r /dev/tty ]; then
-    exec < /dev/tty
-  fi
-fi
-
-log "OpenClaw Deployment Script v$SCRIPT_VERSION"
-
-HAS_TUI=0
-use_tui=0
-CURRENT_STEP="init"
-STEP_PERCENT=0
-RETRY_MAX=3
-
-on_error() {
-  local code=$?
-  err "部署失败（步骤: $CURRENT_STEP，退出码: $code）"
-  warn "常见原因："
-  warn "1) Docker 未正确安装或服务未启动"
-  warn "2) 网络无法访问 GitHub 或 Docker 源"
-  warn "3) 当前用户无 Docker 权限（需要重新登录或使用 root）"
-  warn "4) 端口被占用（请在交互中更换）"
-  warn "如需诊断，可执行：docker info、docker compose logs -f"
-  exit "$code"
+spinner() {
+    local pid=$1
+    local msg=$2
+    local delay=0.1
+    local chars='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    local i=0
+    
+    # 隐藏光标
+    tput civis 2>/dev/null || true
+    
+    while kill -0 $pid 2>/dev/null; do
+        printf "\r${BLUE}[%s]${NC} %s..." "${chars:$i:1}" "$msg"
+        i=$(( (i+1) % ${#chars} ))
+        sleep $delay
+    done
 }
 
-trap on_error ERR
-
-validate_url() {
-  [[ "$1" =~ ^https?:// ]]
-}
-
-validate_port() {
-  [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ] && [ "$1" -le 65535 ]
-}
-
-validate_nonempty() {
-  [ -n "$1" ]
-}
-
-retry() {
-  local n=0
-  local cmd=("$@")
-  until "${cmd[@]}"; do
-    n=$((n+1))
-    if [ "$n" -ge "$RETRY_MAX" ]; then
-      return 1
+run_step() {
+    local msg="$1"
+    local cmd="$2"
+    local step_start=$(date +%s)
+    
+    # 记录日志
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: $msg" >> "$LOG_FILE"
+    
+    # 启动后台进程
+    eval "$cmd" >> "$LOG_FILE" 2>&1 &
+    local pid=$!
+    
+    # 显示 Spinner
+    spinner $pid "$msg"
+    
+    wait $pid
+    local exit_code=$?
+    local step_end=$(date +%s)
+    local duration=$((step_end - step_start))
+    
+    # 恢复光标
+    tput cnorm 2>/dev/null || true
+    
+    # 清除行并重写最终状态
+    local time_str=""
+    if [ $duration -ge 60 ]; then
+        local min=$((duration / 60))
+        local sec=$((duration % 60))
+        time_str="${GRAY}(${min}m ${sec}s)${NC}"
+    else
+        time_str="${GRAY}(${duration}s)${NC}"
     fi
-    warn "命令失败，正在重试 ($n/$RETRY_MAX)..."
-    sleep 2
-  done
+    
+    if [ $exit_code -eq 0 ]; then
+        echo -e "\r${GREEN}[✓]${NC} $msg $time_str"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] DONE: $msg" >> "$LOG_FILE"
+    else
+        echo -e "\r${RED}[✗]${NC} $msg $time_str"
+        echo -e "${RED}错误详情:${NC}"
+        tail -n 15 "$LOG_FILE"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] FAIL: $msg (Exit $exit_code)" >> "$LOG_FILE"
+        exit $exit_code
+    fi
 }
 
-detect_cloud() {
-  if curl -fsSL --connect-timeout 1 http://100.100.100.200/latest/meta-data/ >/dev/null 2>&1; then
-    echo "aliyun"
-    return
-  fi
-  if curl -fsSL --connect-timeout 1 http://169.254.169.254/latest/meta-data/ >/dev/null 2>&1; then
-    echo "aws"
-    return
-  fi
-  if curl -fsSL --connect-timeout 1 http://metadata.tencentyun.com/latest/meta-data/ >/dev/null 2>&1; then
-    echo "tencent"
-    return
-  fi
-  if curl -fsSL --connect-timeout 1 http://169.254.169.254/metadata/instance?api-version=2019-06-01 >/dev/null 2>&1; then
-    echo "azure"
-    return
-  fi
-  if curl -fsSL --connect-timeout 1 http://169.254.169.254/computeMetadata/v1/instance/ -H "Metadata-Flavor: Google" >/dev/null 2>&1; then
-    echo "gcp"
-    return
-  fi
-  echo "unknown"
-}
+log_info()  { echo -e "${CYAN}[i]${NC} $1"; echo "[INFO] $1" >> "$LOG_FILE"; }
+log_ok()    { echo -e "${GREEN}[✓]${NC} $1"; echo "[OK] $1" >> "$LOG_FILE"; }
+log_warn()  { echo -e "${YELLOW}[!]${NC} $1"; echo "[WARN] $1" >> "$LOG_FILE"; }
+log_error() { echo -e "${RED}[✗]${NC} $1"; echo "[ERROR] $1" >> "$LOG_FILE"; exit 1; }
 
-detect_tui() {
-  # Force disable TUI for stability in curl-pipe scenarios
-  # Text-based prompts with our new elegant logging are preferred
-  HAS_TUI=0
-  use_tui=0
-}
+# 兼容旧函数名
+log() { log_info "$1"; }
+warn() { log_warn "$1"; }
+err() { log_error "$1"; }
+ok() { log_ok "$1"; }
+execute_task() { run_step "$1" "${*:2}"; }
 
 detect_os() {
   local name="unknown"
@@ -947,38 +914,63 @@ collect_logs_bundle() {
 }
 
 main() {
-  log "开始检测并准备环境"
+  print_banner
+  
+  echo ""
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${GRAY}  [1/5] 环境准备                                           ${NC}"
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  
   CURRENT_STEP="prepare"
   detect_os
   install_git_curl
   check_network
   
-  log "检查 TUI 环境..."
-  install_tui
-  detect_tui
+  # Removed TUI check as we force disable it for stability
+  # install_tui
+  # detect_tui
   
-  log "显示欢迎界面..."
-  pretty_header
+  log_info "初始化配置向导..."
+  # pretty_header
   
   prompt_basic_settings
   check_self_update
   
-  gauge 20 "环境准备完成，开始安装 Docker"
+  echo ""
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${GRAY}  [2/5] 安装 Docker                                        ${NC}"
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  
   install_docker
   configure_docker_proxy
   configure_docker_mirror
   ensure_docker_running
   ensure_compose
   ensure_docker_permissions
-  gauge 40 "Docker 就绪，开始确认参数"
+  
+  echo ""
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${GRAY}  [3/5] 代码获取                                           ${NC}"
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  
   confirm_summary
-  gauge 50 "开始获取代码"
   clone_or_update_repo
-  gauge 60 "生成部署摘要"
+  
+  echo ""
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${GRAY}  [4/5] 构建与启动                                         ${NC}"
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  
   write_summary_file
   generate_override_file
   build_and_up
   health_check
+  
+  echo ""
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${GRAY}  [5/5] 部署完成                                           ${NC}"
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  
   show_next_steps
   if [[ "$(confirm_yesno "是否生成日志包用于排障？" "N")" =~ ^[Yy]$ ]]; then
     collect_logs_bundle
