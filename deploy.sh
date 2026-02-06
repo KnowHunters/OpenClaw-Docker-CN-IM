@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-50"
+SCRIPT_VERSION="2026.2.6-51"
 
 
 # Initialize log file
@@ -1182,6 +1182,11 @@ main() {
   if [[ "$(confirm_yesno "是否生成日志包用于排障？" "N")" =~ ^[Yy]$ ]]; then
     collect_logs_bundle
   fi
+  
+  echo ""
+  log_info "安装完成！即将返回主菜单..."
+  sleep 2
+  main_menu
 }
 
 prompt_network_tools() {
