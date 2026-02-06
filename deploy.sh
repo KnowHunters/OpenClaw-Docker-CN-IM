@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-55"
+SCRIPT_VERSION="2026.2.6-56"
 
 
 # Initialize log file
@@ -1520,6 +1520,32 @@ diagnostic_check() {
     warn ".env 文件不存在"
   fi
   
+  # Show detailed gateway status if available
+  echo ""
+  log_info "检查网关详细状态..."
+  if docker ps --format '{{.Names}}' | grep -q "^openclaw-gateway$"; then
+    if command -v jq &>/dev/null; then
+      local status_json
+      status_json=$(timeout 5 docker exec openclaw-gateway openclaw gateway status --json 2>/dev/null)
+      if [ $? -eq 0 ]; then
+        local agent_count=$(echo "$status_json" | jq -r '.agents | length' 2>/dev/null || echo "N/A")
+        local channel_count=$(echo "$status_json" | jq -r '.channels | length' 2>/dev/null || echo "N/A")
+        ok "Agents: $agent_count | Channels: $channel_count"
+        
+        # Show channel details
+        if [ "$channel_count" != "N/A" ] && [ "$channel_count" -gt 0 ]; then
+          echo "$status_json" | jq -r '.channels | to_entries[] | "  ├─ \(.key): \(.value.status // "unknown")"' 2>/dev/null
+        fi
+      else
+        warn "无法获取详细状态（RPC 超时或未就绪）"
+      fi
+    else
+      warn "需要安装 jq 才能显示详细状态"
+    fi
+  else
+    warn "容器未运行"
+  fi
+  
   echo ""
   read -r -p "诊断完成，按回车键返回..."
 }
@@ -1627,26 +1653,18 @@ get_gateway_status() {
     return
   fi
   
-  # Container is running, now check if Gateway RPC is healthy
+  # Container is running, do a quick health check with timeout
   local health_check
-  health_check=$(docker exec openclaw-gateway openclaw gateway health 2>&1)
+  health_check=$(timeout 3 docker exec openclaw-gateway openclaw gateway health 2>&1)
   local health_exit=$?
   
   if [ $health_exit -eq 0 ]; then
     echo -e "${GREEN}[🟢 运行中] 网关服务${NC} (Port: ${OPENCLAW_GATEWAY_PORT:-18789})"
-    # Optionally show brief status
-    if command -v jq &>/dev/null; then
-      local status_json
-      status_json=$(docker exec openclaw-gateway openclaw gateway status --json 2>/dev/null)
-      if [ $? -eq 0 ]; then
-        local agent_count=$(echo "$status_json" | jq -r '.agents | length' 2>/dev/null || echo "N/A")
-        local channel_count=$(echo "$status_json" | jq -r '.channels | length' 2>/dev/null || echo "N/A")
-        echo -e "  ${GRAY}├─ Agents: $agent_count | Channels: $channel_count${NC}"
-      fi
-    fi
+  elif [ $health_exit -eq 124 ]; then
+    # Timeout occurred
+    echo -e "${YELLOW}[🟡 响应慢] 网关服务${NC} (健康检查超时)"
   else
-    echo -e "${YELLOW}[🟡 启动中] 网关服务${NC} (容器运行但 RPC 未就绪)"
-    echo -e "  ${GRAY}提示: 服务可能正在初始化，请稍候${NC}"
+    echo -e "${YELLOW}[🟡 启动中] 网关服务${NC} (RPC 未就绪)"
   fi
 }
 
