@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.7-4"
+SCRIPT_VERSION="2026.2.7-5"
 
 
 # Initialize log file
@@ -1605,7 +1605,7 @@ diagnostic_check() {
   if docker ps --format '{{.Names}}' | grep -q "^openclaw-gateway$"; then
     if command -v jq &>/dev/null; then
       local status_json
-      status_json=$(timeout 5 docker exec openclaw-gateway openclaw gateway status --json 2>/dev/null)
+      status_json=$(timeout 5 docker exec openclaw-gateway openclaw gateway status --json --no-probe 2>/dev/null)
       if [ $? -eq 0 ]; then
         local agent_count=$(echo "$status_json" | jq -r '.agents | length' 2>/dev/null || echo "N/A")
         local channel_count=$(echo "$status_json" | jq -r '.channels | length' 2>/dev/null || echo "N/A")
@@ -1733,8 +1733,9 @@ get_gateway_status() {
   fi
   
   # Container is running, do a quick health check with timeout
+  # Use --no-probe to avoid WebSocket connection (prevents token_mismatch in logs)
   local health_check
-  health_check=$(timeout 3 docker exec openclaw-gateway openclaw gateway health 2>&1)
+  health_check=$(timeout 3 docker exec openclaw-gateway openclaw gateway health --no-probe 2>&1)
   local health_exit=$?
   
   if [ $health_exit -eq 0 ]; then
