@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-12"
+SCRIPT_VERSION="2026.2.6-13"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -530,11 +530,14 @@ ask() {
     printf "%s" "$value"
     return
   fi
+  
   if [ -n "$default" ]; then
-    read -r -p "$prompt [$default]: " value
+    printf "${MAGENTA}[?]${NC} %s ${GRAY}[默认: %s]${NC}: " "$prompt" "$default" >&2
+    read -r value
     value="${value:-$default}"
   else
-    read -r -p "$prompt: " value
+    printf "${MAGENTA}[?]${NC} %s: " "$prompt" >&2
+    read -r value
   fi
   printf "%s" "$value"
 }
@@ -551,13 +554,16 @@ ask_secret() {
     printf "%s" "$value"
     return
   fi
+  
   if [ -n "$default" ]; then
-    read -r -s -p "$prompt [$default]: " value
-    echo
+    printf "${MAGENTA}[?]${NC} %s ${GRAY}[默认: ******]${NC}: " "$prompt" >&2
+    read -r -s value
+    echo >&2
     value="${value:-$default}"
   else
-    read -r -s -p "$prompt: " value
-    echo
+    printf "${MAGENTA}[?]${NC} %s: " "$prompt" >&2
+    read -r -s value
+    echo >&2
   fi
   printf "%s" "$value"
 }
@@ -575,18 +581,30 @@ choose_menu() {
     printf "%s" "$choice"
     return
   fi
-  log "$prompt"
-  while [ "$#" -gt 0 ]; do
-    log "$1) $2"
-    shift 2
+  
+  log_info "$prompt" >&2
+  local i=1
+  # Iterate pairs
+  local args=("$@")
+  for ((j=0; j<${#args[@]}; j+=2)); do
+    echo "    $((j/2+1))) ${args[j]} - ${args[j+1]}" >&2
   done
-  choice="$(ask "请选择" "$default")"
+  
+  # Simple choice implementation for now since we don't have a complex menu selector in pure bash without TUI
+  # But the original implementation was calling `ask`.
+  # Let's clean up the prompt a bit.
+  choice="$(ask "请输入选项" "$default")"
   printf "%s" "$choice"
 }
 
 confirm_yesno() {
   local prompt="$1"
   local default="${2:-N}"
+  local default_prompt="y/N"
+  if [ "$default" = "Y" ]; then
+    default_prompt="Y/n"
+  fi
+  
   if [ "$use_tui" -eq 1 ]; then
     if whiptail --title "OpenClaw 一键部署" --yesno "$prompt" 10 70; then
       printf "Y"
@@ -595,7 +613,11 @@ confirm_yesno() {
     fi
     return
   fi
-  ask "$prompt (y/N)" "$default"
+  
+  printf "${MAGENTA}[?]${NC} %s ${GRAY}[%s]${NC}: " "$prompt" "$default_prompt" >&2
+  read -r value
+  value="${value:-$default}"
+  printf "%s" "$value"
 }
 
 pretty_header() {
