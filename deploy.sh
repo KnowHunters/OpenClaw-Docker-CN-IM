@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-7"
+SCRIPT_VERSION="2026.2.6-8"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -28,7 +28,7 @@ LOG_FILE="/tmp/openclaw_deploy.log"
 
 print_banner() {
     echo -e "${CYAN}"
-    cat << 'EOF'
+    cat << EOF
     ╔══════════════════════════════════════════════════════════════════════════════╗
     ║                                                                              ║
     ║   ██████╗ ██████╗ ███████╗███╗   ██╗ ██████╗██╗      █████╗ ██╗    ██╗       ║
