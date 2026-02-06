@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-24"
+SCRIPT_VERSION="2026.2.6-25"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -750,8 +750,18 @@ prompt_env_collect() {
     fi
     warn "MODEL_ID 不能为空"
   done
+    warn "MODEL_ID 不能为空"
+  done
+  
+  local default_base_url="http://localhost:3000/v1"
+  if [ "${INSTALL_AICLIENT:-0}" -eq 1 ]; then
+    # AIClient 使用 Host 模式，OpenClaw 在容器内需要通过 host.docker.internal 访问宿主机
+    default_base_url="http://host.docker.internal:3000/v1"
+    log_info "检测到已安装 AIClient，推荐使用 Host 互联地址"
+  fi
+
   while true; do
-    BASE_URL="$(ask "API 地址 BASE_URL" "${BASE_URL:-http://localhost:3000/v1}")"
+    BASE_URL="$(ask "API 地址 BASE_URL" "${BASE_URL:-$default_base_url}")"
     if validate_url "$BASE_URL"; then
       break
     fi
@@ -1272,6 +1282,17 @@ EOF
     volumes:
       - ./aiclient-data:/app/configs
     # Host mode uses ports directly: 3000 (UI), 8085-8087 (OAuth), etc.
+
+EOF
+  fi
+  
+  # 如果安装了任何网络组件，为 OpenClaw Gateway 启用 host.docker.internal 解析
+  # 这样 OpenClaw 才能通过 host.docker.internal 访问宿主机上的 AIClient (Host 模式)
+  if [ "$INSTALL_AICLIENT" -eq 1 ] || [ "$INSTALL_FILEBROWSER" -eq 1 ]; then
+    cat >> "$INSTALL_DIR/docker-compose.network.yml" <<EOF
+  openclaw-gateway:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 EOF
   fi
