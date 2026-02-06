@@ -139,7 +139,8 @@ EOF
       "groupPolicy": "allowlist",
       "requireMention": true,
       "appId": "$FEISHU_APP_ID",
-      "appSecret": "$FEISHU_APP_SECRET"
+      "appSecret": "$FEISHU_APP_SECRET",
+      "_comment": "Using external plugin @m1heng-clawd/feishu to override built-in"
     }
 EOF
         FIRST_CHANNEL=false
@@ -265,9 +266,20 @@ EOF
     "installs": {
 EOF
 
-    # Telegram 和 Feishu 是内置通道，不需要在 plugins.installs 中安装
-    # 只有外部插件（dingtalk, qqbot, wecom）需要安装
+    # 添加飞书插件安装信息（如果提供了 APP_ID 和 APP_SECRET）
+    # 注：使用外部增强插件 @m1heng-clawd/feishu 覆盖内置的 feishu
     FIRST_INSTALL=true
+    if [ -n "$FEISHU_APP_ID" ] && [ -n "$FEISHU_APP_SECRET" ]; then
+        cat >> /home/node/.openclaw/openclaw.json <<EOF
+      "feishu": {
+        "source": "npm",
+        "spec": "@m1heng-clawd/feishu",
+        "installPath": "/home/node/.openclaw/extensions/feishu",
+        "installedAt": "$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"
+      }
+EOF
+        FIRST_INSTALL=false
+    fi
 
     # 添加钉钉插件安装信息（如果提供了 CLIENT_ID 和 CLIENT_SECRET）
     if [ -n "$DINGTALK_CLIENT_ID" ] && [ -n "$DINGTALK_CLIENT_SECRET" ]; then
