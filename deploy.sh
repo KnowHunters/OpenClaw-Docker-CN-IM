@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-51"
+SCRIPT_VERSION="2026.2.6-52"
 
 
 # Initialize log file
@@ -1495,7 +1495,7 @@ diagnostic_check() {
   fi
   
   log_info "检查关键端口监听..."
-  local ports_to_check=("$OPENCLAW_GATEWAY_PORT" "3000" "$FILEBROWSER_PORT")
+  local ports_to_check=("$OPENCLAW_GATEWAY_PORT" "3000" "${FILEBROWSER_PORT:-}")
   for p in "${ports_to_check[@]}"; do
     if [ -n "$p" ] && [ "$p" != "0" ]; then
       if check_port "$p"; then
