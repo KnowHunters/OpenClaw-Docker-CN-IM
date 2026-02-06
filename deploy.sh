@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-49"
+SCRIPT_VERSION="2026.2.6-50"
 
 
 # Initialize log file
@@ -854,6 +854,17 @@ prompt_env_collect() {
     OPENCLAW_BRIDGE_PORT="$(ask "桥接端口 OPENCLAW_BRIDGE_PORT" "${OPENCLAW_BRIDGE_PORT:-18790}")"
     if ! validate_port "$OPENCLAW_BRIDGE_PORT"; then
       warn "端口格式不正确，请输入 1-65535 之间的数字"
+      continue
+    fi
+    # Check if Bridge Port conflicts with Gateway Port
+    if [ "$OPENCLAW_BRIDGE_PORT" = "$OPENCLAW_GATEWAY_PORT" ]; then
+      warn "桥接端口不能与网关端口 ($OPENCLAW_GATEWAY_PORT) 相同"
+      local suggested2
+      suggested2="$(find_available_port "$((OPENCLAW_GATEWAY_PORT + 1))")"
+      warn "推荐可用端口: $suggested2"
+      if [[ "$(confirm_yesno "是否使用推荐端口 $suggested2 ?" "Y")" =~ ^[Yy]$ ]]; then
+        OPENCLAW_BRIDGE_PORT="$suggested2"
+      fi
       continue
     fi
     if check_port "$OPENCLAW_BRIDGE_PORT"; then
