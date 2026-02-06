@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-40"
+SCRIPT_VERSION="2026.2.6-41"
 
 
 # Initialize log file
@@ -999,10 +999,10 @@ build_and_up() {
 
   if docker compose version >/dev/null 2>&1; then
     gauge 90 "使用 docker compose 启动"
-    retry bash -c "OPENCLAW_IMAGE=\"$IMAGE_TAG\" docker compose up -d"
+    retry bash -c "OPENCLAW_IMAGE=\"$IMAGE_TAG\" docker compose up -d --remove-orphans"
   else
     gauge 90 "使用 docker-compose 启动"
-    retry bash -c "OPENCLAW_IMAGE=\"$IMAGE_TAG\" docker-compose up -d"
+    retry bash -c "OPENCLAW_IMAGE=\"$IMAGE_TAG\" docker-compose up -d --remove-orphans"
   fi
 
   gauge 100 "部署完成"
@@ -1611,7 +1611,9 @@ main_menu() {
     
     case "$choice" in
       1)
-        if [[ "$(confirm_yesno "这将覆盖现有配置，确认重装?" "N")" =~ ^[Yy]$ ]]; then
+        if [[ "$(confirm_yesno "这将停止现有服务并覆盖配置，确认重装?" "N")" =~ ^[Yy]$ ]]; then
+          log_info "正在停止现有服务..."
+          cd "$INSTALL_DIR" && docker compose down 2>/dev/null || true
           return 0 # Proceed to main installation flow
         fi
         ;;
