@@ -271,7 +271,7 @@ EOF
             echo "," >> /home/node/.openclaw/openclaw.json
         fi
         cat >> /home/node/.openclaw/openclaw.json <<EOF
-      "openclaw-plugin-wecom": {
+      "wecom": {
         "enabled": true
       }
 EOF
@@ -335,10 +335,10 @@ EOF
             echo "," >> /home/node/.openclaw/openclaw.json
         fi
         cat >> /home/node/.openclaw/openclaw.json <<EOF
-      "openclaw-plugin-wecom": {
+      "wecom": {
         "source": "npm",
         "spec": "https://github.com/sunnoy/openclaw-plugin-wecom.git",
-        "installPath": "/home/node/.openclaw/extensions/openclaw-plugin-wecom",
+        "installPath": "/home/node/.openclaw/extensions/wecom",
         "installedAt": "$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"
       }
 EOF
