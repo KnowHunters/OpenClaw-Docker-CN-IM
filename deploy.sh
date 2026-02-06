@@ -205,32 +205,39 @@ pkg_install() {
   local pkgs=("$@")
   if need_cmd apt-get; then
     require_sudo
+    log "正在更新软件源..."
     sudo apt-get update -y
+    log "正在安装依赖: ${pkgs[*]}..."
     sudo apt-get install -y "${pkgs[@]}"
     return
   fi
   if need_cmd dnf; then
     require_sudo
+    log "正在安装依赖: ${pkgs[*]}..."
     sudo dnf install -y "${pkgs[@]}"
     return
   fi
   if need_cmd yum; then
     require_sudo
+    log "正在安装依赖: ${pkgs[*]}..."
     sudo yum install -y "${pkgs[@]}"
     return
   fi
   if need_cmd zypper; then
     require_sudo
+    log "正在安装依赖: ${pkgs[*]}..."
     sudo zypper --non-interactive install "${pkgs[@]}"
     return
   fi
   if need_cmd pacman; then
     require_sudo
+    log "正在安装依赖: ${pkgs[*]}..."
     sudo pacman -Sy --noconfirm "${pkgs[@]}"
     return
   fi
   if need_cmd apk; then
     require_sudo
+    log "正在安装依赖: ${pkgs[*]}..."
     sudo apk add --no-cache "${pkgs[@]}"
     return
   fi
