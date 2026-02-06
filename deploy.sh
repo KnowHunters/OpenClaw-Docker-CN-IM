@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-26"
+SCRIPT_VERSION="2026.2.6-27"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -949,6 +949,17 @@ EOF
     compose_files="$compose_files:docker-compose.network.yml"
   fi
   echo "COMPOSE_FILE=$compose_files" >> "$INSTALL_DIR/.env"
+  
+  # 保存安装状态标志，以便 modify config 时能恢复勾选
+  cat >> "$INSTALL_DIR/.env" <<EOF
+
+# Installation Flags (Internal)
+INSTALL_ZEROTIER=${INSTALL_ZEROTIER:-0}
+INSTALL_TAILSCALE=${INSTALL_TAILSCALE:-0}
+INSTALL_CLOUDFLARED=${INSTALL_CLOUDFLARED:-0}
+INSTALL_FILEBROWSER=${INSTALL_FILEBROWSER:-0}
+INSTALL_AICLIENT=${INSTALL_AICLIENT:-0}
+EOF
 
   log ".env 已生成: $INSTALL_DIR/.env"
 }
@@ -1403,6 +1414,131 @@ services:
 EOF
     ok "已生成 docker-compose.override.yml"
   fi
+}
+
+
+load_current_config() {
+  if [ -f "$INSTALL_DIR/.env" ]; then
+    log_info "正在加载当前配置..."
+    # source .env safely
+    set -a
+    # shellcheck source=/dev/null
+    . "$INSTALL_DIR/.env"
+    set +a
+    
+    # Reload INSTALL_* network flags from COMPOSE_FILE logic if possible, 
+    # but easier to just let user re-select or we'd need to parse COMPOSE_FILE.
+    # For now, let's just load env vars. Network tool selection state isn't saved in .env 
+    # (except imply via COMPOSE_FILE), so user might need to re-select network tools if they modify config.
+    # To improve this, we should save INSTALL_* vars to .env or a separate state file.
+    # Let's save them to .env in write_env_file for future re-runs?
+    # Yes, I will update write_env_file later to save INSTALL_* flags.
+    # For now, we assume defaults (0) if not present.
+    ok "配置已加载"
+  else
+    warn "未找到配置文件"
+  fi
+}
+
+diagnostic_check() {
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${GRAY}  OpenClaw 智能诊断                                        ${NC}"
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  
+  log_info "检查 Docker 容器状态..."
+  cd "$INSTALL_DIR" || return
+  if docker compose ps; then
+    ok "容器列表获取成功"
+  else
+    warn "无法获取容器列表，请检查 Docker 是否运行"
+  fi
+  
+  log_info "检查关键端口监听..."
+  local ports_to_check=("$OPENCLAW_GATEWAY_PORT" "3000" "$FILEBROWSER_PORT")
+  for p in "${ports_to_check[@]}"; do
+    if [ -n "$p" ] && [ "$p" != "0" ]; then
+      if check_port "$p"; then
+        ok "端口 $p 正在监听 (正常)"
+      else
+        warn "端口 $p 未被监听 (如果该服务已启用，则可能未启动成功)"
+      fi
+    fi
+  done
+  
+  log_info "检查环境变量配置..."
+  if [ -f .env ]; then
+    if grep -q "API_KEY=" .env; then
+      ok "API_KEY 已配置"
+    else
+      warn "API_KEY 未找到"
+    fi
+    if grep -q "host.docker.internal" docker-compose.network.yml 2>/dev/null; then
+      ok "Host 网络互联已配置"
+    fi
+  else
+    warn ".env 文件不存在"
+  fi
+  
+  echo ""
+  read -r -p "诊断完成，按回车键返回..."
+}
+
+main_menu() {
+  while true; do
+    clear
+    echo -e "${BLUE}
+   ____                    _____  _                  
+  / __ \                  / ____|| |                 
+ | |  | | _ __    ___   _ | |    | |   __ _ __      __
+ | |  | || '_ \  / _ \ | || |    | |  / _\` |\ \ /\ / /
+ | |__| || |_) ||  __/ | || |____| | | (_| | \ V  V / 
+  \____/ | .__/  \___| |_| \_____||_|  \__,_|  \_/\_/  
+         | |                                           
+         |_|   Dashboard & Installer ${GRAY}v$SCRIPT_VERSION${NC}
+"
+    echo "当前安装目录: $INSTALL_DIR"
+    echo ""
+    echo " [1] 全新安装 / 强制重装"
+    echo " [2] 修改当前配置 (重启服务)"
+    echo " [3] 智能诊断 / 检查"
+    echo " [4] 查看运行日志"
+    echo " [5] 退出脚本"
+    echo ""
+    read -r -p "请选择 [1-5]: " choice
+    
+    case "$choice" in
+      1)
+        if [[ "$(confirm_yesno "这将覆盖现有配置，确认重装?" "N")" =~ ^[Yy]$ ]]; then
+          return 0 # Proceed to main installation flow
+        fi
+        ;;
+      2)
+        load_current_config
+        # Jump to wizard
+        run_wizard
+        clone_or_update_repo # Update repo if needed
+        generate_override_file
+        generate_network_compose
+        build_and_up
+        show_next_steps
+        pause_key
+        ;;
+      3)
+        diagnostic_check
+        ;;
+      4)
+        collect_logs_bundle
+        cd "$INSTALL_DIR" && docker compose logs -f --tail=100
+        ;;
+      5)
+        exit 0
+        ;;
+      *)
+        warn "无效选择"
+        sleep 1
+        ;;
+    esac
+  done
 }
 
 check_self_update() {
