@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-14"
+SCRIPT_VERSION="2026.2.6-15"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -193,6 +193,30 @@ detect_os() {
   fi
   
   log "检测到系统: ${name} ${ver} (ID=$OS_ID, CODENAME=$OS_CODENAME)"
+}
+
+detect_cloud() {
+  if curl -fsSL --connect-timeout 1 http://100.100.100.200/latest/meta-data/ >/dev/null 2>&1; then
+    echo "aliyun"
+    return
+  fi
+  if curl -fsSL --connect-timeout 1 http://169.254.169.254/latest/meta-data/ >/dev/null 2>&1; then
+    echo "aws"
+    return
+  fi
+  if curl -fsSL --connect-timeout 1 http://metadata.tencentyun.com/latest/meta-data/ >/dev/null 2>&1; then
+    echo "tencent"
+    return
+  fi
+  if curl -fsSL --connect-timeout 1 http://169.254.169.254/metadata/instance?api-version=2019-06-01 >/dev/null 2>&1; then
+    echo "azure"
+    return
+  fi
+  if curl -fsSL --connect-timeout 1 http://169.254.169.254/computeMetadata/v1/instance/ -H "Metadata-Flavor: Google" >/dev/null 2>&1; then
+    echo "gcp"
+    return
+  fi
+  echo "unknown"
 }
 
 check_network() {
