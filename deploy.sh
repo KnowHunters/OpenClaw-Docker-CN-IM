@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-35"
+SCRIPT_VERSION="2026.2.6-36"
 
 
 # Initialize log file
@@ -942,6 +942,11 @@ OPENCLAW_GATEWAY_BIND=$OPENCLAW_GATEWAY_BIND
 OPENCLAW_GATEWAY_PORT=$OPENCLAW_GATEWAY_PORT
 OPENCLAW_BRIDGE_PORT=$OPENCLAW_BRIDGE_PORT
 EOF
+
+  # Ensure override file exists to prevent startup error
+  if [ ! -f "$INSTALL_DIR/docker-compose.override.yml" ]; then
+    echo "services: {}" > "$INSTALL_DIR/docker-compose.override.yml"
+  fi
 
   # Compose 文件加载顺序
   local compose_files="docker-compose.yml:docker-compose.override.yml"
