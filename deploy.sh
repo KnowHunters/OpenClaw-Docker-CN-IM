@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-44"
+SCRIPT_VERSION="2026.2.6-45"
 
 
 # Initialize log file
@@ -1510,15 +1510,19 @@ openclaw_cli_menu() {
     echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
     echo -e "${GRAY}  OpenClaw CLI 工具箱                                      ${NC}"
     echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+    echo " [0] 进入终端聊天 (TUI) ✨"
     echo " [1] 查看网关状态 (gateway status)"
     echo " [2] 健康检查 (gateway health)"
     echo " [3] 系统深度扫描 (gateway status --deep)"
     echo " [4] 系统医生 (doctor)"
     echo " [5] 查看实时日志 (logs --follow)"
-    echo " [6] 返回上级菜单"
+    echo " [6] 模型列表 (models list)"
+    echo " [7] 模型状态 (models status)"
+    echo " [8] 查看配置 (config)"
+    echo " [9] 返回上级菜单"
     echo ""
     local choice
-    read -r -p "请选择执行命令 [1-6]: " choice
+    read -r -p "请选择执行命令 [0-9]: " choice
     
     local container_name="openclaw-gateway"
     # Verify container is running
@@ -1528,6 +1532,10 @@ openclaw_cli_menu() {
     fi
 
     case "$choice" in
+      0)
+        log_info "启动终端聊天界面 (按 Ctrl+C 退出)..."
+        docker exec -it "$container_name" openclaw tui
+        ;;
       1)
         log_info "执行: openclaw gateway status"
         docker exec -it "$container_name" openclaw gateway status
@@ -1553,6 +1561,21 @@ openclaw_cli_menu() {
         docker exec -it "$container_name" openclaw logs --follow
         ;;
       6)
+        log_info "执行: openclaw models list"
+        docker exec -it "$container_name" openclaw models list
+        pause_key
+        ;;
+      7)
+        log_info "执行: openclaw models status"
+        docker exec -it "$container_name" openclaw models status
+        pause_key
+        ;;
+      8)
+        log_info "执行: openclaw config (显示所有配置)"
+        docker exec -it "$container_name" sh -c "openclaw config get ."
+        pause_key
+        ;;
+      9)
         return
         ;;
       *)
