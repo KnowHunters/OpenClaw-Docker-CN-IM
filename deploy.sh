@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.7-2"
+SCRIPT_VERSION="2026.2.7-3"
 
 
 # Initialize log file
@@ -1766,10 +1766,25 @@ main_menu() {
         load_current_config
         # Jump to wizard
         run_wizard
-        clone_or_update_repo # Update repo if needed
+        
+        # Update compose files if network tools changed
         generate_override_file
         generate_network_compose
-        build_and_up
+        
+        # Restart containers to apply new configuration
+        log_info "正在重启服务以应用新配置..."
+        cd "$INSTALL_DIR" || exit 1
+        
+        # Check if we need to recreate containers (e.g., network tools changed)
+        if docker compose ps | grep -q "aiclient\|gost"; then
+          # Network tools exist, do a full up to ensure they're configured
+          docker compose up -d
+        else
+          # Just restart existing containers
+          docker compose restart
+        fi
+        
+        ok "服务已重启"
         show_next_steps
         pause_key
         ;;
