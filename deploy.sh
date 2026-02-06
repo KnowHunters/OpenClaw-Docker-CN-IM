@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.7-1"
+SCRIPT_VERSION="2026.2.7-2"
 
 
 # Initialize log file
@@ -906,6 +906,32 @@ prompt_env_collect() {
       OPENCLAW_BRIDGE_PORT="$suggested2"
     fi
   done
+}
+
+run_wizard() {
+  echo ""
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${GRAY}  配置向导                                                 ${NC}"
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  echo ""
+  
+  # Step 1: Basic settings
+  prompt_basic_settings
+  
+  # Step 2: Environment collection
+  prompt_env_collect
+  
+  # Step 3: Network tools (optional)
+  local yn
+  yn="$(confirm_yesno "是否重新配置网络工具 (AIClient/Proxy)?" "N")"
+  if [[ "$yn" =~ ^[Yy]$ ]]; then
+    prompt_network_tools
+  fi
+  
+  # Step 4: Write configuration
+  write_env_file
+  
+  ok "配置已更新"
 }
 
 env_preview_text() {
