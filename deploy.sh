@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-27"
+SCRIPT_VERSION="2026.2.6-28"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -750,8 +750,7 @@ prompt_env_collect() {
     fi
     warn "MODEL_ID 不能为空"
   done
-    warn "MODEL_ID 不能为空"
-  done
+
   
   local default_base_url="http://localhost:3000/v1"
   if [ "${INSTALL_AICLIENT:-0}" -eq 1 ]; then
