@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.7-3"
+SCRIPT_VERSION="2026.2.7-4"
 
 
 # Initialize log file
@@ -746,6 +746,29 @@ port_usage_detail() {
   fi
 }
 
+# Smart port check that ignores ports used by own containers
+check_port_smart() {
+  local port="$1"
+  local allow_self="${2:-true}"  # Default: allow self-occupation
+  
+  # First check if port is in use at all
+  if ! check_port "$port"; then
+    # Port is occupied, check if it's by docker-proxy (our container)
+    if [ "$allow_self" = "true" ] && need_cmd ss; then
+      local usage
+      usage=$(ss -lntp 2>/dev/null | grep ":$port" | grep -o 'docker-proxy' || true)
+      if [ -n "$usage" ]; then
+        # Port is occupied by docker-proxy (our container), this is OK
+        return 0
+      fi
+    fi
+    # Port is occupied by something else
+    return 1
+  fi
+  # Port is free
+  return 0
+}
+
 find_available_port() {
   local start="$1"
   local p="$start"
@@ -867,12 +890,13 @@ prompt_env_collect() {
       warn "端口格式不正确，请输入 1-65535 之间的数字"
       continue
     fi
-    if check_port "$OPENCLAW_GATEWAY_PORT"; then
+    # Use smart check to allow self-occupation (修改配置时容器可能正在运行)
+    if check_port_smart "$OPENCLAW_GATEWAY_PORT" true; then
       break
     fi
     local suggested
     suggested="$(find_available_port "$OPENCLAW_GATEWAY_PORT")"
-    warn "端口 $OPENCLAW_GATEWAY_PORT 已被占用，推荐可用端口: $suggested"
+    warn "端口 $OPENCLAW_GATEWAY_PORT 已被其他服务占用，推荐可用端口: $suggested"
     port_usage_detail "$OPENCLAW_GATEWAY_PORT" | sed 's/^/[占用] /'
     if [[ "$(confirm_yesno "是否使用推荐端口 $suggested ?" "Y")" =~ ^[Yy]$ ]]; then
       OPENCLAW_GATEWAY_PORT="$suggested"
@@ -895,12 +919,13 @@ prompt_env_collect() {
       fi
       continue
     fi
-    if check_port "$OPENCLAW_BRIDGE_PORT"; then
+    # Use smart check to allow self-occupation
+    if check_port_smart "$OPENCLAW_BRIDGE_PORT" true; then
       break
     fi
     local suggested2
     suggested2="$(find_available_port "$OPENCLAW_BRIDGE_PORT")"
-    warn "端口 $OPENCLAW_BRIDGE_PORT 已被占用，推荐可用端口: $suggested2"
+    warn "端口 $OPENCLAW_BRIDGE_PORT 已被其他服务占用，推荐可用端口: $suggested2"
     port_usage_detail "$OPENCLAW_BRIDGE_PORT" | sed 's/^/[占用] /'
     if [[ "$(confirm_yesno "是否使用推荐端口 $suggested2 ?" "Y")" =~ ^[Yy]$ ]]; then
       OPENCLAW_BRIDGE_PORT="$suggested2"
