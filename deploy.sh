@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.7-11"
+SCRIPT_VERSION="2026.2.8-1"
 
 
 # Initialize log file
@@ -1903,6 +1903,618 @@ get_all_services_status() {
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
 }
 
+# ════════════════════ 高级配置管理 ════════════════════
+
+# 获取配置值
+get_config_value() {
+  local key="$1"
+  local config_file="$INSTALL_DIR/data/openclaw/openclaw.json"
+  
+  if [ ! -f "$config_file" ]; then
+    echo ""
+    return 1
+  fi
+  
+  docker exec openclaw-gateway jq -r "$key // empty" /home/node/.openclaw/openclaw.json 2>/dev/null || echo ""
+}
+
+# 查看当前配置
+view_current_config() {
+  echo ""
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${CYAN}  当前配置概览                                             ${NC}"
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+  echo ""
+  
+  local config_file="$INSTALL_DIR/data/openclaw/openclaw.json"
+  if [ ! -f "$config_file" ]; then
+    log_error "配置文件不存在"
+    return 1
+  fi
+  
+  echo -e "${BOLD}Agent 配置:${NC}"
+  echo "  主模型: $(get_config_value '.agents.defaults.model.primary')"
+  echo "  工作区: $(get_config_value '.agents.defaults.workspace')"
+  echo "  最大并发: $(get_config_value '.agents.defaults.maxConcurrent')"
+  echo "  Subagent 并发: $(get_config_value '.agents.defaults.subagents.maxConcurrent')"
+  echo ""
+  
+  echo -e "${BOLD}模型配置:${NC}"
+  echo "  Provider: $(get_config_value '.models.providers.default.baseUrl')"
+  echo "  API 协议: $(get_config_value '.models.providers.default.api')"
+  echo "  上下文窗口: $(get_config_value '.models.providers.default.models[0].contextWindow')"
+  echo "  最大 Tokens: $(get_config_value '.models.providers.default.models[0].maxTokens')"
+  echo ""
+  
+  echo -e "${BOLD}网关配置:${NC}"
+  echo "  端口: $(get_config_value '.gateway.port')"
+  echo "  绑定: $(get_config_value '.gateway.bind')"
+  echo "  模式: $(get_config_value '.gateway.mode')"
+  echo ""
+  
+  # 检查已启用的频道
+  local channels=$(docker exec openclaw-gateway jq -r '.channels | keys[]' /home/node/.openclaw/openclaw.json 2>/dev/null)
+  if [ -n "$channels" ]; then
+    echo -e "${BOLD}已配置频道:${NC}"
+    echo "$channels" | while read -r channel; do
+      echo "  - $channel"
+    done
+    echo ""
+  fi
+  
+  read -p "按 Enter 继续..."
+}
+
+# 性能优化配置菜单
+performance_config_menu() {
+  while true; do
+    clear
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  性能优化配置                                             ${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo " [1] 查看当前配置"
+    echo " [2] 优化 Agent 并发 (推荐根据系统资源)"
+    echo " [3] 优化上下文窗口 (减少 Token 消耗)"
+    echo " [4] 应用低内存配置 (<4GB RAM)"
+    echo " [5] 应用标准配置 (4-8GB RAM)"
+    echo " [6] 应用高性能配置 (>8GB RAM)"
+    echo " [7] 返回主菜单"
+    echo ""
+    read -r -p "请选择 [1-7]: " choice
+    
+    case "$choice" in
+      1)
+        view_current_config
+        ;;
+      2)
+        configure_agent_concurrency
+        ;;
+      3)
+        configure_context_window
+        ;;
+      4)
+        apply_low_memory_config
+        ;;
+      5)
+        apply_standard_config
+        ;;
+      6)
+        apply_high_performance_config
+        ;;
+      7)
+        return
+        ;;
+      *)
+        warn "无效选择"
+        sleep 1
+        ;;
+    esac
+  done
+}
+
+# 配置 Agent 并发
+configure_agent_concurrency() {
+  echo ""
+  echo -e "${YELLOW}配置 Agent 并发数${NC}"
+  echo ""
+  
+  local current_concurrent=$(get_config_value '.agents.defaults.maxConcurrent')
+  local current_subagent=$(get_config_value '.agents.defaults.subagents.maxConcurrent')
+  
+  echo "当前配置:"
+  echo "  Agent 并发: $current_concurrent"
+  echo "  Subagent 并发: $current_subagent"
+  echo ""
+  
+  # 检测系统内存
+  local total_mem=$(docker exec openclaw-gateway free -m 2>/dev/null | awk 'NR==2{print $2}')
+  if [ -n "$total_mem" ]; then
+    echo "系统内存: ${total_mem}MB"
+    if [ "$total_mem" -lt 2048 ]; then
+      echo -e "${YELLOW}推荐: maxConcurrent=2, subagents=4${NC}"
+    elif [ "$total_mem" -lt 4096 ]; then
+      echo -e "${GREEN}推荐: maxConcurrent=4, subagents=8${NC}"
+    else
+      echo -e "${GREEN}推荐: maxConcurrent=8, subagents=16${NC}"
+    fi
+    echo ""
+  fi
+  
+  read -p "Agent 最大并发数 [1-16, 默认: $current_concurrent]: " new_concurrent
+  new_concurrent=${new_concurrent:-$current_concurrent}
+  
+  read -p "Subagent 最大并发数 [1-32, 默认: $((new_concurrent * 2))]: " new_subagent
+  new_subagent=${new_subagent:-$((new_concurrent * 2))}
+  
+  # 更新配置
+  docker exec openclaw-gateway sh -c "
+    jq '.agents.defaults.maxConcurrent = $new_concurrent | .agents.defaults.subagents.maxConcurrent = $new_subagent' \
+      /home/node/.openclaw/openclaw.json > /tmp/openclaw.json.tmp && \
+    mv /tmp/openclaw.json.tmp /home/node/.openclaw/openclaw.json
+  " --argjson new_concurrent "$new_concurrent" --argjson new_subagent "$new_subagent" 2>/dev/null
+  
+  if [ $? -eq 0 ]; then
+    ok "配置已更新，重启服务生效"
+    read -p "是否立即重启服务? [y/N]: " restart_now
+    if [[ "$restart_now" =~ ^[Yy]$ ]]; then
+      cd "$INSTALL_DIR" && docker compose restart openclaw-gateway
+      ok "服务已重启"
+    fi
+  else
+    log_error "配置更新失败"
+  fi
+  
+  read -p "按 Enter 继续..."
+}
+
+# 配置上下文窗口
+configure_context_window() {
+  echo ""
+  echo -e "${YELLOW}配置上下文窗口${NC}"
+  echo ""
+  
+  local current_window=$(get_config_value '.models.providers.default.models[0].contextWindow')
+  local current_max_tokens=$(get_config_value '.models.providers.default.models[0].maxTokens')
+  
+  echo "当前配置:"
+  echo "  上下文窗口: $current_window tokens"
+  echo "  最大输出: $current_max_tokens tokens"
+  echo ""
+  echo -e "${CYAN}建议:${NC}"
+  echo "  - 减少上下文窗口可降低 Token 消耗"
+  echo "  - 推荐值: 50000-200000"
+  echo "  - 最大输出推荐: 4096-8192"
+  echo ""
+  
+  read -p "上下文窗口 [默认: $current_window]: " new_window
+  new_window=${new_window:-$current_window}
+  
+  read -p "最大输出 tokens [默认: $current_max_tokens]: " new_max_tokens
+  new_max_tokens=${new_max_tokens:-$current_max_tokens}
+  
+  # 更新配置
+  docker exec openclaw-gateway sh -c "
+    jq '.models.providers.default.models[0].contextWindow = $new_window | .models.providers.default.models[0].maxTokens = $new_max_tokens' \
+      /home/node/.openclaw/openclaw.json > /tmp/openclaw.json.tmp && \
+    mv /tmp/openclaw.json.tmp /home/node/.openclaw/openclaw.json
+  " --argjson new_window "$new_window" --argjson new_max_tokens "$new_max_tokens" 2>/dev/null
+  
+  if [ $? -eq 0 ]; then
+    ok "配置已更新，重启服务生效"
+    read -p "是否立即重启服务? [y/N]: " restart_now
+    if [[ "$restart_now" =~ ^[Yy]$ ]]; then
+      cd "$INSTALL_DIR" && docker compose restart openclaw-gateway
+      ok "服务已重启"
+    fi
+  else
+    log_error "配置更新失败"
+  fi
+  
+  read -p "按 Enter 继续..."
+}
+
+# 应用低内存配置
+apply_low_memory_config() {
+  echo ""
+  echo -e "${YELLOW}应用低内存配置 (<4GB RAM)${NC}"
+  echo ""
+  echo "将应用以下配置:"
+  echo "  - Agent 并发: 2"
+  echo "  - Subagent 并发: 4"
+  echo "  - 上下文窗口: 50000"
+  echo "  - 最大输出: 4096"
+  echo ""
+  
+  read -p "确认应用? [y/N]: " confirm
+  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    return
+  fi
+  
+  docker exec openclaw-gateway sh -c "
+    jq '.agents.defaults.maxConcurrent = 2 | 
+        .agents.defaults.subagents.maxConcurrent = 4 | 
+        .models.providers.default.models[0].contextWindow = 50000 | 
+        .models.providers.default.models[0].maxTokens = 4096' \
+      /home/node/.openclaw/openclaw.json > /tmp/openclaw.json.tmp && \
+    mv /tmp/openclaw.json.tmp /home/node/.openclaw/openclaw.json
+  " 2>/dev/null
+  
+  if [ $? -eq 0 ]; then
+    ok "低内存配置已应用"
+    cd "$INSTALL_DIR" && docker compose restart openclaw-gateway
+    ok "服务已重启"
+  else
+    log_error "配置应用失败"
+  fi
+  
+  read -p "按 Enter 继续..."
+}
+
+# 应用标准配置
+apply_standard_config() {
+  echo ""
+  echo -e "${YELLOW}应用标准配置 (4-8GB RAM)${NC}"
+  echo ""
+  echo "将应用以下配置:"
+  echo "  - Agent 并发: 4"
+  echo "  - Subagent 并发: 8"
+  echo "  - 上下文窗口: 100000"
+  echo "  - 最大输出: 8192"
+  echo ""
+  
+  read -p "确认应用? [y/N]: " confirm
+  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    return
+  fi
+  
+  docker exec openclaw-gateway sh -c "
+    jq '.agents.defaults.maxConcurrent = 4 | 
+        .agents.defaults.subagents.maxConcurrent = 8 | 
+        .models.providers.default.models[0].contextWindow = 100000 | 
+        .models.providers.default.models[0].maxTokens = 8192' \
+      /home/node/.openclaw/openclaw.json > /tmp/openclaw.json.tmp && \
+    mv /tmp/openclaw.json.tmp /home/node/.openclaw/openclaw.json
+  " 2>/dev/null
+  
+  if [ $? -eq 0 ]; then
+    ok "标准配置已应用"
+    cd "$INSTALL_DIR" && docker compose restart openclaw-gateway
+    ok "服务已重启"
+  else
+    log_error "配置应用失败"
+  fi
+  
+  read -p "按 Enter 继续..."
+}
+
+# 应用高性能配置
+apply_high_performance_config() {
+  echo ""
+  echo -e "${YELLOW}应用高性能配置 (>8GB RAM)${NC}"
+  echo ""
+  echo "将应用以下配置:"
+  echo "  - Agent 并发: 8"
+  echo "  - Subagent 并发: 16"
+  echo "  - 上下文窗口: 200000"
+  echo "  - 最大输出: 8192"
+  echo ""
+  
+  read -p "确认应用? [y/N]: " confirm
+  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    return
+  fi
+  
+  docker exec openclaw-gateway sh -c "
+    jq '.agents.defaults.maxConcurrent = 8 | 
+        .agents.defaults.subagents.maxConcurrent = 16 | 
+        .models.providers.default.models[0].contextWindow = 200000 | 
+        .models.providers.default.models[0].maxTokens = 8192' \
+      /home/node/.openclaw/openclaw.json > /tmp/openclaw.json.tmp && \
+    mv /tmp/openclaw.json.tmp /home/node/.openclaw/openclaw.json
+  " 2>/dev/null
+  
+  if [ $? -eq 0 ]; then
+    ok "高性能配置已应用"
+    cd "$INSTALL_DIR" && docker compose restart openclaw-gateway
+    ok "服务已重启"
+  else
+    log_error "配置应用失败"
+  fi
+  
+  read -p "按 Enter 继续..."
+}
+
+# 记忆管理菜单
+memory_management_menu() {
+  while true; do
+    clear
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  记忆系统管理                                             ${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo " [1] 查看记忆统计"
+    echo " [2] 浏览工作区文件"
+    echo " [3] 清理旧记忆 (>60天)"
+    echo " [4] 备份工作区"
+    echo " [5] 返回主菜单"
+    echo ""
+    read -r -p "请选择 [1-5]: " choice
+    
+    case "$choice" in
+      1)
+        show_memory_stats
+        ;;
+      2)
+        browse_workspace
+        ;;
+      3)
+        cleanup_old_memory
+        ;;
+      4)
+        backup_workspace
+        ;;
+      5)
+        return
+        ;;
+      *)
+        warn "无效选择"
+        sleep 1
+        ;;
+    esac
+  done
+}
+
+# 显示记忆统计
+show_memory_stats() {
+  echo ""
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${CYAN}  记忆统计                                                 ${NC}"
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+  echo ""
+  
+  local workspace=$(get_config_value '.agents.defaults.workspace')
+  if [ -z "$workspace" ]; then
+    log_error "无法获取工作区路径"
+    read -p "按 Enter 继续..."
+    return
+  fi
+  
+  echo "工作区: $workspace"
+  echo ""
+  
+  # 统计文件
+  local total_files=$(docker exec openclaw-gateway find "$workspace" -type f 2>/dev/null | wc -l)
+  local md_files=$(docker exec openclaw-gateway find "$workspace" -name "*.md" 2>/dev/null | wc -l)
+  
+  echo -e "${BOLD}文件统计:${NC}"
+  echo "  总文件数: $total_files"
+  echo "  Markdown 文件: $md_files"
+  echo ""
+  
+  # 检查常见目录
+  if docker exec openclaw-gateway test -d "$workspace/memory" 2>/dev/null; then
+    echo -e "${BOLD}记忆目录:${NC}"
+    for dir in notes tasks ideas journal weekly monthly; do
+      local count=$(docker exec openclaw-gateway find "$workspace/memory/$dir" -name "*.md" 2>/dev/null | wc -l)
+      if [ "$count" -gt 0 ]; then
+        echo "  📁 $dir: $count 个文件"
+      fi
+    done
+    echo ""
+  fi
+  
+  # 磁盘使用
+  local disk_usage=$(docker exec openclaw-gateway du -sh "$workspace" 2>/dev/null | awk '{print $1}')
+  echo -e "${BOLD}磁盘使用:${NC}"
+  echo "  工作区大小: $disk_usage"
+  echo ""
+  
+  read -p "按 Enter 继续..."
+}
+
+# 浏览工作区
+browse_workspace() {
+  echo ""
+  echo -e "${CYAN}浏览工作区文件${NC}"
+  echo ""
+  
+  local workspace=$(get_config_value '.agents.defaults.workspace')
+  if [ -z "$workspace" ]; then
+    log_error "无法获取工作区路径"
+    read -p "按 Enter 继续..."
+    return
+  fi
+  
+  echo "工作区: $workspace"
+  echo ""
+  echo "最近修改的文件:"
+  docker exec openclaw-gateway find "$workspace" -type f -name "*.md" -mtime -7 -exec ls -lh {} \; 2>/dev/null | \
+    awk '{print $9, "(" $5 ")"}'  | head -20
+  
+  echo ""
+  read -p "按 Enter 继续..."
+}
+
+# 清理旧记忆
+cleanup_old_memory() {
+  echo ""
+  echo -e "${YELLOW}清理旧记忆 (>60天)${NC}"
+  echo ""
+  
+  local workspace=$(get_config_value '.agents.defaults.workspace')
+  if [ -z "$workspace" ]; then
+    log_error "无法获取工作区路径"
+    read -p "按 Enter 继续..."
+    return
+  fi
+  
+  # 查找旧文件
+  local old_files=$(docker exec openclaw-gateway find "$workspace/memory" -type f -name "*.md" -mtime +60 2>/dev/null | wc -l)
+  
+  if [ "$old_files" -eq 0 ]; then
+    log_info "没有找到超过 60 天的文件"
+    read -p "按 Enter 继续..."
+    return
+  fi
+  
+  echo "找到 $old_files 个超过 60 天的文件"
+  echo ""
+  read -p "确认删除? [y/N]: " confirm
+  
+  if [[ "$confirm" =~ ^[Yy]$ ]]; then
+    docker exec openclaw-gateway find "$workspace/memory" -type f -name "*.md" -mtime +60 -delete 2>/dev/null
+    ok "已清理旧文件"
+  else
+    log_info "已取消"
+  fi
+  
+  read -p "按 Enter 继续..."
+}
+
+# 备份工作区
+backup_workspace() {
+  echo ""
+  echo -e "${CYAN}备份工作区${NC}"
+  echo ""
+  
+  local workspace=$(get_config_value '.agents.defaults.workspace')
+  if [ -z "$workspace" ]; then
+    log_error "无法获取工作区路径"
+    read -p "按 Enter 继续..."
+    return
+  fi
+  
+  local backup_name="workspace_backup_$(date +%Y%m%d_%H%M%S).tar.gz"
+  local backup_path="$INSTALL_DIR/backups/$backup_name"
+  
+  mkdir -p "$INSTALL_DIR/backups"
+  
+  log_info "正在备份工作区..."
+  docker exec openclaw-gateway tar -czf "/tmp/$backup_name" -C "$(dirname "$workspace")" "$(basename "$workspace")" 2>/dev/null
+  docker cp "openclaw-gateway:/tmp/$backup_name" "$backup_path" 2>/dev/null
+  docker exec openclaw-gateway rm "/tmp/$backup_name" 2>/dev/null
+  
+  if [ -f "$backup_path" ]; then
+    ok "备份完成: $backup_path"
+    echo "备份大小: $(du -h "$backup_path" | awk '{print $1}')"
+  else
+    log_error "备份失败"
+  fi
+  
+  read -p "按 Enter 继续..."
+}
+
+# Skills 管理菜单
+skills_management_menu() {
+  while true; do
+    clear
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  Skills 管理                                              ${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo " [1] 列出已安装 Skills"
+    echo " [2] 查看 Skills 详情"
+    echo " [3] 返回主菜单"
+    echo ""
+    read -r -p "请选择 [1-3]: " choice
+    
+    case "$choice" in
+      1)
+        list_skills
+        ;;
+      2)
+        view_skill_details
+        ;;
+      3)
+        return
+        ;;
+      *)
+        warn "无效选择"
+        sleep 1
+        ;;
+    esac
+  done
+}
+
+# 列出 Skills
+list_skills() {
+  echo ""
+  echo -e "${CYAN}已安装的 Skills:${NC}"
+  echo ""
+  
+  docker exec openclaw-gateway openclaw skills list 2>/dev/null || {
+    log_warn "无法获取 Skills 列表"
+    echo "可能原因:"
+    echo "  - 网关未运行"
+    echo "  - Skills 功能未启用"
+  }
+  
+  echo ""
+  read -p "按 Enter 继续..."
+}
+
+# 查看 Skill 详情
+view_skill_details() {
+  echo ""
+  read -p "请输入 Skill 名称: " skill_name
+  
+  if [ -z "$skill_name" ]; then
+    return
+  fi
+  
+  echo ""
+  echo -e "${CYAN}Skill 详情: $skill_name${NC}"
+  echo ""
+  
+  docker exec openclaw-gateway openclaw skills show "$skill_name" 2>/dev/null || {
+    log_error "无法获取 Skill 详情"
+  }
+  
+  echo ""
+  read -p "按 Enter 继续..."
+}
+
+# 高级配置主菜单
+advanced_config_menu() {
+  while true; do
+    clear
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  高级配置管理                                             ${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo " [1] 性能优化配置"
+    echo " [2] 记忆系统管理"
+    echo " [3] Skills 管理"
+    echo " [4] 查看完整配置"
+    echo " [5] 返回主菜单"
+    echo ""
+    read -r -p "请选择 [1-5]: " choice
+    
+    case "$choice" in
+      1)
+        performance_config_menu
+        ;;
+      2)
+        memory_management_menu
+        ;;
+      3)
+        skills_management_menu
+        ;;
+      4)
+        view_current_config
+        ;;
+      5)
+        return
+        ;;
+      *)
+        warn "无效选择"
+        sleep 1
+        ;;
+    esac
+  done
+}
+
 main_menu() {
   # Load env to display port info
   if [ -f "$INSTALL_DIR/.env" ]; then
@@ -1929,12 +2541,13 @@ main_menu() {
     echo ""
     echo " [1] 全新安装 / 强制重装"
     echo " [2] 修改当前配置 (重启服务)"
-    echo " [3] 智能诊断 / 检查"
-    echo " [4] 查看运行日志"
-    echo " [5] 检查脚本更新"
-    echo " [6] 退出脚本"
+    echo " [3] 高级配置管理 (性能/记忆/Skills)"
+    echo " [4] 智能诊断 / 检查"
+    echo " [5] 查看运行日志"
+    echo " [6] 检查脚本更新"
+    echo " [7] 退出脚本"
     echo ""
-    read -r -p "请选择 [1-6]: " choice
+    read -r -p "请选择 [1-7]: " choice
     
     case "$choice" in
       1)
@@ -1971,6 +2584,9 @@ main_menu() {
         pause_key
         ;;
       3)
+        advanced_config_menu
+        ;;
+      4)
         echo ""
         echo " [1] 自动智能诊断 (Auto Diagnostics)"
         echo " [2] OpenClaw 命令行工具 (CLI Tools)"
@@ -1984,15 +2600,15 @@ main_menu() {
           *) ;;
         esac
         ;;
-      4)
+      5)
         collect_logs_bundle
         cd "$INSTALL_DIR" && docker compose logs -f --tail=100
         ;;
-      5)
+      6)
         check_self_update
         pause_key
         ;;
-      6)
+      7)
         exit 0
         ;;
       *)
