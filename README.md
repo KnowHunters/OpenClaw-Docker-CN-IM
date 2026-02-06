@@ -41,6 +41,23 @@ docker pull justlikemaki/openclaw-docker-cn-im:latest
 
 ---
 
+## ⚡ 一键部署（推荐）
+
+如果您使用的是 Linux/MacOS 系统，推荐使用我们的一键部署脚本，它会自动处理 Docker 安装、环境配置和服务启动。
+
+```bash
+bash <(curl -sL https://raw.githubusercontent.com/KnowHunters/OpenClaw-Docker-CN-IM/main/deploy.sh)
+```
+
+脚本功能包括：
+- ✅ 自动检查并安装 Docker 环境
+- ✅ 交互式配置向导（支持 TUI 图形界面）
+- ✅ 自动生成 `.env` 配置文件
+- ✅ 自动拉取镜像并启动服务
+- ✅ 智能检测国内环境并配置镜像加速
+
+---
+
 ## 快速开始
 
 ### 1. 下载配置文件
