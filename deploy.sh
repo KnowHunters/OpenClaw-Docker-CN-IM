@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.7-8"
+SCRIPT_VERSION="2026.2.7-9"
 
 
 # Initialize log file
@@ -1822,19 +1822,15 @@ get_gateway_status() {
     return
   fi
   
-  # Container is running, do a quick health check with timeout
-  # Use --no-probe to avoid WebSocket connection (prevents token_mismatch in logs)
-  local health_check
-  health_check=$(timeout 3 docker exec openclaw-gateway openclaw gateway health --no-probe 2>&1)
-  local health_exit=$?
+  # Container is running, check if the main process is healthy
+  # Use process check instead of CLI command for faster response
+  local process_check
+  process_check=$(docker exec openclaw-gateway pgrep -f "node.*openclaw" 2>/dev/null)
   
-  if [ $health_exit -eq 0 ]; then
+  if [ -n "$process_check" ]; then
     echo -e "${GREEN}[🟢 运行中] 网关服务${NC} (Port: ${OPENCLAW_GATEWAY_PORT:-18789})"
-  elif [ $health_exit -eq 124 ]; then
-    # Timeout occurred
-    echo -e "${YELLOW}[🟡 响应慢] 网关服务${NC} (健康检查超时)"
   else
-    echo -e "${YELLOW}[🟡 启动中] 网关服务${NC} (RPC 未就绪)"
+    echo -e "${YELLOW}[🟡 启动中] 网关服务${NC} (进程未就绪)"
   fi
 }
 
