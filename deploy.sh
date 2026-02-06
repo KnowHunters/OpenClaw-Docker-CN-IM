@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-22"
+SCRIPT_VERSION="2026.2.6-23"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -1028,6 +1028,7 @@ show_next_steps() {
     log "AIClient-2-API (模型接入): http://$ip:3000"
     log "默认账号: admin / admin123"
     warn "  - TCP 3000 (AIClient 管理面板)"
+    warn "  - TCP 8085-8087, 1455, 19876-19880 (OAuth 回调必要端口)"
   fi
   
   if [ "${INSTALL_FILEBROWSER:-0}" -eq 1 ]; then
