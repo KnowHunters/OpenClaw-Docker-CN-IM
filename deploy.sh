@@ -20,7 +20,7 @@ ICON_SUCCESS="+"
 ICON_ERROR="x"
 ICON_WARN="!"
 
-SCRIPT_VERSION="2026.2.6-2"
+SCRIPT_VERSION="2026.2.6-3"
 
 log() { printf "${BLUE}[ %s ]${NC} [openclaw] %s\n" "$ICON_RUNNING" "$*"; }
 warn() { printf "${YELLOW}[ %s ]${NC} [openclaw] 警告: %s\n" "$ICON_WARN" "$*" >&2; }
@@ -222,9 +222,10 @@ pkg_install() {
   if need_cmd apt-get; then
     require_sudo
     log "正在更新软件源..."
-    sudo apt-get update -y
+    sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
     log "正在安装依赖: ${pkgs[*]}..."
-    sudo apt-get install -y "${pkgs[@]}"
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" "${pkgs[@]}"
+    log "依赖安装完成"
     return
   fi
   if need_cmd dnf; then
