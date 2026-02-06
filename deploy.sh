@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-41"
+SCRIPT_VERSION="2026.2.6-42"
 
 
 # Initialize log file
@@ -1557,7 +1557,6 @@ openclaw_cli_menu() {
         sleep 1
         ;;
     esac
-  done
   done
 }
 
