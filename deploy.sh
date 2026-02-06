@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-29"
+SCRIPT_VERSION="2026.2.6-30"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -1085,14 +1085,12 @@ main() {
     exit 1
   fi
 
-
   print_banner
   
   CURRENT_STEP="prepare"
   detect_os
   install_git_curl
   check_network
-  check_self_update
   
   # 如果已安装 (.env 存在)，显示主菜单
   if [ -f "$INSTALL_DIR/.env" ]; then
@@ -1502,9 +1500,10 @@ main_menu() {
     echo " [2] 修改当前配置 (重启服务)"
     echo " [3] 智能诊断 / 检查"
     echo " [4] 查看运行日志"
-    echo " [5] 退出脚本"
+    echo " [5] 检查脚本更新"
+    echo " [6] 退出脚本"
     echo ""
-    read -r -p "请选择 [1-5]: " choice
+    read -r -p "请选择 [1-6]: " choice
     
     case "$choice" in
       1)
@@ -1531,6 +1530,10 @@ main_menu() {
         cd "$INSTALL_DIR" && docker compose logs -f --tail=100
         ;;
       5)
+        check_self_update
+        pause_key
+        ;;
+      6)
         exit 0
         ;;
       *)
@@ -1545,24 +1548,47 @@ check_self_update() {
   if ! is_tty; then
     return
   fi
-  if [[ "$(confirm_yesno "是否检查并更新部署脚本？" "N")" =~ ^[Yy]$ ]]; then
-    local raw_url=""
-    if [[ "$REPO_URL" =~ github.com/([^/]+)/([^/]+) ]]; then
-      local owner="${BASH_REMATCH[1]}"
-      local repo="${BASH_REMATCH[2]}"
-      raw_url="https://raw.githubusercontent.com/${owner}/${repo}/${BRANCH}/deploy.sh"
-    fi
-    if [ -n "$raw_url" ]; then
-      log "正在更新脚本: $raw_url"
-      curl -fsSL "$raw_url" -o /tmp/deploy.sh.new
-      if [ -s /tmp/deploy.sh.new ]; then
-        cp /tmp/deploy.sh.new "$0"
-        ok "脚本已更新，请重新运行"
-        exit 0
-      fi
+  log_info "正在检查脚本更新..."
+  local raw_url=""
+  # Use default REPO_URL if unbound, though it should be global. 
+  # Using ${REPO_URL:-...} prevents set -u crash.
+  local repo_url="${REPO_URL:-https://github.com/KnowHunters/OpenClaw-Docker-CN-IM.git}"
+  local branch="${BRANCH:-main}"
+  
+  if [[ "$repo_url" =~ github.com/([^/]+)/([^/]+) ]]; then
+    local owner="${BASH_REMATCH[1]}"
+    local repo="${BASH_REMATCH[2]}"
+    repo="${repo%.git}" # remove .git suffix if present
+    raw_url="https://raw.githubusercontent.com/${owner}/${repo}/${branch}/deploy.sh"
+  fi
+  
+  if [ -n "$raw_url" ]; then
+    log "正在获取最新版本: $raw_url"
+    if curl -fsSL "$raw_url" -o /tmp/deploy.sh.new; then
+        # Simple string compare of version line
+        local local_ver
+        local remote_ver
+        local_ver="$SCRIPT_VERSION"
+        remote_ver="$(grep '^SCRIPT_VERSION=' /tmp/deploy.sh.new | cut -d'"' -f2)"
+        
+        if [ "$local_ver" != "$remote_ver" ]; then
+            log "发现新版本: v$local_ver -> v${remote_ver:-unknown}"
+            if [[ "$(confirm_yesno "是否更新脚本并重启?" "Y")" =~ ^[Yy]$ ]]; then
+                cp /tmp/deploy.sh.new "$0"
+                ok "脚本已更新，正在重启..."
+                chmod +x "$0"
+                exec bash "$0" "$@"
+            else
+                log "已取消更新"
+            fi
+        else
+            ok "当前已是最新版本 ($local_ver)"
+        fi
     else
-      warn "无法解析脚本更新地址"
+        warn "下载更新失败"
     fi
+  else
+    warn "无法解析更新地址"
   fi
 }
 main "$@"
