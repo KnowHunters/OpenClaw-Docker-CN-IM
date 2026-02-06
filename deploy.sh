@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.8-1"
+SCRIPT_VERSION="2026.2.8-2"
 
 
 # Initialize log file
@@ -785,11 +785,108 @@ find_available_port() {
 }
 
 confirm_summary() {
-  log "即将开始部署，参数如下："
+  echo ""
+  log "即将开始部署，请确认以下配置："
+  echo ""
+  
+  # 部署参数
+  echo -e "${BOLD}═══ 部署参数 ═══${NC}"
   log "仓库: $REPO_URL"
   log "分支: $BRANCH"
   log "目录: $INSTALL_DIR"
   log "镜像: $IMAGE_TAG"
+  echo ""
+  
+  # 模型配置
+  echo -e "${BOLD}═══ 模型配置 ═══${NC}"
+  log "模型 ID: ${MODEL_ID:-未设置}"
+  log "API 地址: ${BASE_URL:-未设置}"
+  log "API 协议: ${API_PROTOCOL:-openai-completions}"
+  log "上下文窗口: ${CONTEXT_WINDOW:-128000} tokens"
+  log "最大输出: ${MAX_TOKENS:-8192} tokens"
+  echo ""
+  
+  # 网关配置
+  echo -e "${BOLD}═══ 网关配置 ═══${NC}"
+  log "网关端口: ${OPENCLAW_GATEWAY_PORT:-18789}"
+  log "桥接端口: ${OPENCLAW_BRIDGE_PORT:-18790}"
+  log "绑定地址: ${OPENCLAW_GATEWAY_BIND:-0.0.0.0}"
+  echo ""
+  
+  # 频道配置
+  echo -e "${BOLD}═══ 频道配置 ═══${NC}"
+  local has_channel=false
+  
+  if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+    log "✓ Telegram: 已配置"
+    has_channel=true
+  fi
+  
+  if [ -n "$FEISHU_APP_ID" ] && [ -n "$FEISHU_APP_SECRET" ]; then
+    log "✓ 飞书: 已配置"
+    has_channel=true
+  fi
+  
+  if [ -n "$DINGTALK_CLIENT_ID" ] && [ -n "$DINGTALK_CLIENT_SECRET" ]; then
+    log "✓ 钉钉: 已配置"
+    has_channel=true
+  fi
+  
+  if [ -n "$QQ_APP_ID" ] && [ -n "$QQ_CLIENT_SECRET" ]; then
+    log "✓ QQ Bot: 已配置"
+    has_channel=true
+  fi
+  
+  if [ -n "$WECOM_CORP_ID" ] && [ -n "$WECOM_AGENT_ID" ] && [ -n "$WECOM_SECRET" ]; then
+    log "✓ 企业微信: 已配置"
+    has_channel=true
+  fi
+  
+  if [ "$has_channel" = false ]; then
+    log "✗ 未配置任何频道 (仅使用网关模式)"
+  fi
+  echo ""
+  
+  # 网络工具配置
+  echo -e "${BOLD}═══ 网络工具 ═══${NC}"
+  local has_network_tool=false
+  
+  if [ "$USE_AICLIENT" = "true" ]; then
+    log "✓ AIClient-2-API: 端口 ${AICLIENT_PORT:-3000}"
+    has_network_tool=true
+  fi
+  
+  if [ "$USE_FILEBROWSER" = "true" ]; then
+    log "✓ FileBrowser: 端口 ${FILEBROWSER_PORT:-8080}"
+    has_network_tool=true
+  fi
+  
+  if [ "$USE_ZEROTIER" = "true" ]; then
+    log "✓ ZeroTier: 网络 ID ${ZEROTIER_NETWORK_ID}"
+    has_network_tool=true
+  fi
+  
+  if [ "$USE_TAILSCALE" = "true" ]; then
+    log "✓ Tailscale: 已启用"
+    has_network_tool=true
+  fi
+  
+  if [ "$USE_CLOUDFLARED" = "true" ]; then
+    log "✓ Cloudflare Tunnel: Token ${CLOUDFLARE_TUNNEL_TOKEN:0:20}..."
+    has_network_tool=true
+  fi
+  
+  if [ "$has_network_tool" = false ]; then
+    log "✗ 未配置网络工具"
+  fi
+  echo ""
+  
+  # 性能配置
+  echo -e "${BOLD}═══ 性能配置 ═══${NC}"
+  log "Agent 并发: ${AGENT_MAX_CONCURRENT:-4}"
+  log "Subagent 并发: ${SUBAGENT_MAX_CONCURRENT:-8}"
+  echo ""
+  
   if is_tty; then
     local yn
     yn="$(confirm_yesno "确认继续?" "Y")"
