@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-10"
+SCRIPT_VERSION="2026.2.6-11"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -29,6 +29,45 @@ use_tui=0
 CURRENT_STEP="init"
 STEP_PERCENT=0
 RETRY_MAX=3
+
+on_error() {
+  local code=$?
+  err "部署失败（步骤: $CURRENT_STEP，退出码: $code）"
+  warn "常见原因："
+  warn "1) Docker 未正确安装或服务未启动"
+  warn "2) 网络无法访问 GitHub 或 Docker 源"
+  warn "3) 当前用户无 Docker 权限（需要重新登录或使用 root）"
+  warn "4) 端口被占用（请在交互中更换）"
+  warn "如需诊断，可执行：docker info、docker compose logs -f"
+  exit "$code"
+}
+
+trap on_error ERR
+
+validate_url() {
+  [[ "$1" =~ ^https?:// ]]
+}
+
+validate_port() {
+  [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ] && [ "$1" -le 65535 ]
+}
+
+validate_nonempty() {
+  [ -n "$1" ]
+}
+
+retry() {
+  local n=0
+  local cmd=("$@")
+  until "${cmd[@]}"; do
+    n=$((n+1))
+    if [ "$n" -ge "$RETRY_MAX" ]; then
+      return 1
+    fi
+    warn "命令失败，正在重试 ($n/$RETRY_MAX)..."
+    sleep 2
+  done
+}
 
 # ════════════════════ 交互函数 ════════════════════
 
