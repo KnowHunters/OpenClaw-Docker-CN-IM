@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-53"
+SCRIPT_VERSION="2026.2.6-54"
 
 
 # Initialize log file
@@ -1616,13 +1616,37 @@ get_gateway_status() {
     return
   fi
   
-  if docker ps --format '{{.Names}}' | grep -q "^openclaw-gateway$"; then
+  # Check if container is running
+  if ! docker ps --format '{{.Names}}' | grep -q "^openclaw-gateway$"; then
+    # Check if container exists but stopped
+    if docker ps -a --format '{{.Names}}' | grep -q "^openclaw-gateway$"; then
+      echo -e "${RED}[🔴 已停止] 网关服务${NC}"
+    else
+      echo -e "${GRAY}[⚪ 未安装] 网关服务${NC}"
+    fi
+    return
+  fi
+  
+  # Container is running, now check if Gateway RPC is healthy
+  local health_check
+  health_check=$(docker exec openclaw-gateway openclaw gateway health 2>&1)
+  local health_exit=$?
+  
+  if [ $health_exit -eq 0 ]; then
     echo -e "${GREEN}[🟢 运行中] 网关服务${NC} (Port: ${OPENCLAW_GATEWAY_PORT:-18789})"
-  # Check if container exists but stopped
-  elif docker ps -a --format '{{.Names}}' | grep -q "^openclaw-gateway$"; then
-    echo -e "${RED}[🔴 已停止] 网关服务${NC}"
+    # Optionally show brief status
+    if command -v jq &>/dev/null; then
+      local status_json
+      status_json=$(docker exec openclaw-gateway openclaw gateway status --json 2>/dev/null)
+      if [ $? -eq 0 ]; then
+        local agent_count=$(echo "$status_json" | jq -r '.agents | length' 2>/dev/null || echo "N/A")
+        local channel_count=$(echo "$status_json" | jq -r '.channels | length' 2>/dev/null || echo "N/A")
+        echo -e "  ${GRAY}├─ Agents: $agent_count | Channels: $channel_count${NC}"
+      fi
+    fi
   else
-    echo -e "${GRAY}[⚪ 未安装] 网关服务${NC}"
+    echo -e "${YELLOW}[🟡 启动中] 网关服务${NC} (容器运行但 RPC 未就绪)"
+    echo -e "  ${GRAY}提示: 服务可能正在初始化，请稍候${NC}"
   fi
 }
 
