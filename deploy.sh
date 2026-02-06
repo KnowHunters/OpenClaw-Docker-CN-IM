@@ -6,10 +6,24 @@ INSTALL_DIR_DEFAULT="$HOME/openclaw"
 BRANCH_DEFAULT="main"
 IMAGE_TAG_DEFAULT="openclaw-docker-cn-im:local"
 
-log() { printf "[openclaw] %s\n" "$*"; }
-warn() { printf "[openclaw] 警告: %s\n" "$*" >&2; }
-err() { printf "[openclaw] 错误: %s\n" "$*" >&2; }
-ok() { printf "[openclaw] 完成: %s\n" "$*"; }
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# Icons
+ICON_RUNNING="⏳"
+ICON_SUCCESS="✅"
+ICON_ERROR="❌"
+ICON_WARN="⚠️"
+
+log() { printf "${BLUE}[ %s ]${NC} [openclaw] %s\n" "$ICON_RUNNING" "$*"; }
+warn() { printf "${YELLOW}[ %s ]${NC} [openclaw] 警告: %s\n" "$ICON_WARN" "$*" >&2; }
+err() { printf "${RED}[ %s ]${NC} [openclaw] 错误: %s\n" "$ICON_ERROR" "$*" >&2; }
+ok() { printf "${GREEN}[ %s ]${NC} [openclaw] 完成: %s\n" "$ICON_SUCCESS" "$*"; }
 
 need_cmd() { command -v "$1" >/dev/null 2>&1; }
 
