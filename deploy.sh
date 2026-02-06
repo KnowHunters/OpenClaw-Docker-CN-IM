@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.7-9"
+SCRIPT_VERSION="2026.2.7-10"
 
 
 # Initialize log file
@@ -1822,15 +1822,24 @@ get_gateway_status() {
     return
   fi
   
-  # Container is running, check if the main process is healthy
-  # Use process check instead of CLI command for faster response
-  local process_check
-  process_check=$(docker exec openclaw-gateway pgrep -f "node.*openclaw" 2>/dev/null)
+  # Container is running, check if gateway HTTP endpoint is accessible
+  # Use curl to test connectivity with short timeout
+  local port="${OPENCLAW_GATEWAY_PORT:-18789}"
+  local health_status
   
-  if [ -n "$process_check" ]; then
-    echo -e "${GREEN}[🟢 运行中] 网关服务${NC} (Port: ${OPENCLAW_GATEWAY_PORT:-18789})"
+  # Try to connect to gateway HTTP endpoint (should return something even without auth)
+  if health_status=$(curl -s -m 2 --connect-timeout 1 "http://localhost:$port" 2>/dev/null); then
+    echo -e "${GREEN}[🟢 运行中] 网关服务${NC} (Port: $port)"
   else
-    echo -e "${YELLOW}[🟡 启动中] 网关服务${NC} (进程未就绪)"
+    # Check if it's just starting (process exists but port not ready)
+    local process_check
+    process_check=$(docker exec openclaw-gateway pgrep -f "node.*openclaw" 2>/dev/null)
+    
+    if [ -n "$process_check" ]; then
+      echo -e "${YELLOW}[🟡 启动中] 网关服务${NC} (端口未就绪)"
+    else
+      echo -e "${RED}[🔴 异常] 网关服务${NC} (进程未运行)"
+    fi
   fi
 }
 
