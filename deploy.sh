@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-38"
+SCRIPT_VERSION="2026.2.6-39"
 
 
 # Initialize log file
@@ -1499,6 +1499,65 @@ diagnostic_check() {
   
   echo ""
   read -r -p "诊断完成，按回车键返回..."
+}
+
+openclaw_cli_menu() {
+  while true; do
+    echo ""
+    echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${GRAY}  OpenClaw CLI 工具箱                                      ${NC}"
+    echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+    echo " [1] 查看网关状态 (gateway status)"
+    echo " [2] 健康检查 (gateway health)"
+    echo " [3] 系统深度扫描 (gateway status --deep)"
+    echo " [4] 系统医生 (doctor)"
+    echo " [5] 查看实时日志 (logs --follow)"
+    echo " [6] 返回上级菜单"
+    echo ""
+    local choice
+    read -r -p "请选择执行命令 [1-6]: " choice
+    
+    local container_name="openclaw-gateway"
+    # Verify container is running
+    if ! docker ps --format '{{.Names}}' | grep -q "^${container_name}$"; then
+      warn "容器 $container_name 未运行，无法执行 CLI 命令"
+      return
+    fi
+
+    case "$choice" in
+      1)
+        log_info "执行: openclaw gateway status"
+        docker exec -it "$container_name" openclaw gateway status
+        pause_key
+        ;;
+      2)
+        log_info "执行: openclaw gateway health"
+        docker exec -it "$container_name" openclaw gateway health
+        pause_key
+        ;;
+      3)
+        log_info "执行: openclaw gateway status --deep"
+        docker exec -it "$container_name" openclaw gateway status --deep
+        pause_key
+        ;;
+      4)
+        log_info "执行: openclaw doctor"
+        docker exec -it "$container_name" openclaw doctor
+        pause_key
+        ;;
+      5)
+        log_info "正在查看日志 (按 Ctrl+C 退出)..."
+        docker exec -it "$container_name" openclaw logs --follow
+        ;;
+      6)
+        return
+        ;;
+      *)
+        warn "无效选择"
+        sleep 1
+        ;;
+    esac
+  done
 }
 
 main_menu() {
