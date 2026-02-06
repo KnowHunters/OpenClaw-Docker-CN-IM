@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-32"
+SCRIPT_VERSION="2026.2.6-33"
 
 
 # Initialize log file
@@ -1104,7 +1104,15 @@ main() {
   echo -e "${GRAY}  [1/6] 环境准备                                           ${NC}"
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
 
-  check_docker
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${GRAY}  [2/6] Docker 环境准备                                    ${NC}"
+  echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
+
+  install_docker
+  ensure_docker_running
+  ensure_compose
+  ensure_docker_permissions
+  
   detect_cloud
   
   # Initialize wizard steps
