@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-47"
+SCRIPT_VERSION="2026.2.6-48"
 
 
 # Initialize log file
@@ -777,7 +777,7 @@ prompt_env_collect() {
   done
   
   # API_KEY should be provided by user, no random default
-  API_KEY="$(ask_secret "API 密钥 API_KEY" "${API_KEY:-}")"
+  API_KEY="$(ask "API 密钥 API_KEY" "${API_KEY:-}")"
   
   if [ -z "$API_KEY" ]; then
     warn "API_KEY 为空，可能导致无法调用模型"
