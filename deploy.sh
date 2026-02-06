@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-13"
+SCRIPT_VERSION="2026.2.6-14"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -374,8 +374,8 @@ install_docker() {
     execute_task "安装基础工具" $SUDO_CMD DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg
     $SUDO_CMD install -m 0755 -d /etc/apt/keyrings
     
-    # Fix: Use OS_ID and SUDO_CMD. Remove complex subshell that fails interpretation.
-    execute_task "添加 Docker GPG 密钥" bash -c "curl -fsSL https://download.docker.com/linux/$OS_ID/gpg | $SUDO_CMD gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes"
+    # Fix: properly quote the command for execute_task so bash -c sees a single argument
+    execute_task "添加 Docker GPG 密钥" "bash -c \"curl -fsSL https://download.docker.com/linux/$OS_ID/gpg | $SUDO_CMD gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes\""
     $SUDO_CMD chmod a+r /etc/apt/keyrings/docker.gpg
     
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$OS_ID $OS_CODENAME stable" | $SUDO_CMD tee /etc/apt/sources.list.d/docker.list >/dev/null
