@@ -215,29 +215,11 @@ EOF
     "entries": {
 EOF
 
-    # 添加 Telegram 插件配置（如果提供了 token）
+    # Telegram 和 Feishu 是内置插件，不需要在 plugins.entries 中声明
+    # 只有外部插件（dingtalk, qqbot, wecom）需要在这里启用
     FIRST_PLUGIN=true
-    if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
-        cat >> /home/node/.openclaw/openclaw.json <<EOF
-      "telegram": {
-        "enabled": true
-      }
-EOF
-        FIRST_PLUGIN=false
-    fi
 
-    # 添加飞书插件配置（如果提供了 APP_ID 和 APP_SECRET）
-    if [ -n "$FEISHU_APP_ID" ] && [ -n "$FEISHU_APP_SECRET" ]; then
-        if [ "$FIRST_PLUGIN" = false ]; then
-            echo "," >> /home/node/.openclaw/openclaw.json
-        fi
-        cat >> /home/node/.openclaw/openclaw.json <<EOF
-      "feishu": {
-        "enabled": true
-      }
-EOF
-        FIRST_PLUGIN=false
-    fi
+    # 飞书是内置插件，不需要在 plugins.entries 中声明
 
     # 添加钉钉插件配置（如果提供了 CLIENT_ID 和 CLIENT_SECRET）
     if [ -n "$DINGTALK_CLIENT_ID" ] && [ -n "$DINGTALK_CLIENT_SECRET" ]; then
