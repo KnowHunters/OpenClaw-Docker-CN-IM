@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.7-7"
+SCRIPT_VERSION="2026.2.7-8"
 
 
 # Initialize log file
@@ -946,11 +946,24 @@ run_wizard() {
   # Step 2: Environment collection
   prompt_env_collect
   
-  # Step 3: Network tools (optional)
-  local yn
-  yn="$(confirm_yesno "是否重新配置网络工具 (AIClient/Proxy)?" "N")"
-  if [[ "$yn" =~ ^[Yy]$ ]]; then
+  # Step 3: Network tools (smart detection)
+  # Check if any network tools are already installed
+  local has_network_tools=false
+  if [ -f "$INSTALL_DIR/docker-compose.network.yml" ] || [ -f "$INSTALL_DIR/docker-compose.aiclient.yml" ]; then
+    has_network_tools=true
+  fi
+  
+  if [ "$has_network_tools" = true ]; then
+    # Auto-configure if already installed
+    log_info "检测到已安装的网络工具，进入配置..."
     prompt_network_tools
+  else
+    # Ask if user wants to configure
+    local yn
+    yn="$(confirm_yesno "是否配置网络工具 (AIClient/Proxy/组网)?" "N")"
+    if [[ "$yn" =~ ^[Yy]$ ]]; then
+      prompt_network_tools
+    fi
   fi
   
   # Step 4: Write configuration
@@ -1271,48 +1284,125 @@ main() {
 prompt_network_tools() {
   log "开始配置网络增强组件 (可选)"
   
+  # Detect existing installations from docker-compose files
+  local has_zerotier=false
+  local has_tailscale=false
+  local has_cloudflared=false
+  local has_filebrowser=false
+  local has_aiclient=false
+  
+  if [ -f "$INSTALL_DIR/docker-compose.network.yml" ]; then
+    grep -q "zerotier" "$INSTALL_DIR/docker-compose.network.yml" 2>/dev/null && has_zerotier=true
+    grep -q "tailscale" "$INSTALL_DIR/docker-compose.network.yml" 2>/dev/null && has_tailscale=true
+    grep -q "cloudflared" "$INSTALL_DIR/docker-compose.network.yml" 2>/dev/null && has_cloudflared=true
+    grep -q "filebrowser" "$INSTALL_DIR/docker-compose.network.yml" 2>/dev/null && has_filebrowser=true
+  fi
+  
+  if [ -f "$INSTALL_DIR/docker-compose.aiclient.yml" ]; then
+    has_aiclient=true
+  fi
+  
   # ZeroTier
-  if [[ "$(confirm_yesno "是否安装 ZeroTier (异地组网)?" "N")" =~ ^[Yy]$ ]]; then
-    INSTALL_ZEROTIER=1
-    ZEROTIER_ID="$(ask "ZeroTier Network ID (留空仅安装不加入)" "")"
+  if [ "$has_zerotier" = true ]; then
+    echo -e "${YELLOW}[已安装] ZeroTier${NC}"
+    if [[ "$(confirm_yesno "是否卸载 ZeroTier?" "N")" =~ ^[Yy]$ ]]; then
+      INSTALL_ZEROTIER=0
+      log_info "将卸载 ZeroTier"
+    else
+      INSTALL_ZEROTIER=1
+      ZEROTIER_ID="${ZEROTIER_ID:-}"
+      log_info "保持 ZeroTier 安装"
+    fi
   else
-    INSTALL_ZEROTIER=0
+    if [[ "$(confirm_yesno "是否安装 ZeroTier (异地组网)?" "N")" =~ ^[Yy]$ ]]; then
+      INSTALL_ZEROTIER=1
+      ZEROTIER_ID="$(ask "ZeroTier Network ID (留空仅安装不加入)" "")"
+    else
+      INSTALL_ZEROTIER=0
+    fi
   fi
   
   # Tailscale
-  if [[ "$(confirm_yesno "是否安装 Tailscale (推荐组网神器)?" "N")" =~ ^[Yy]$ ]]; then
-    INSTALL_TAILSCALE=1
-    TAILSCALE_AUTHKEY="$(ask_secret "Tailscale Auth Key (留空需手动登录)" "")"
+  if [ "$has_tailscale" = true ]; then
+    echo -e "${YELLOW}[已安装] Tailscale${NC}"
+    if [[ "$(confirm_yesno "是否卸载 Tailscale?" "N")" =~ ^[Yy]$ ]]; then
+      INSTALL_TAILSCALE=0
+      log_info "将卸载 Tailscale"
+    else
+      INSTALL_TAILSCALE=1
+      TAILSCALE_AUTHKEY="${TAILSCALE_AUTHKEY:-}"
+      log_info "保持 Tailscale 安装"
+    fi
   else
-    INSTALL_TAILSCALE=0
+    if [[ "$(confirm_yesno "是否安装 Tailscale (推荐组网神器)?" "N")" =~ ^[Yy]$ ]]; then
+      INSTALL_TAILSCALE=1
+      TAILSCALE_AUTHKEY="$(ask_secret "Tailscale Auth Key (留空需手动登录)" "")"
+    else
+      INSTALL_TAILSCALE=0
+    fi
   fi
   
   # Cloudflare Tunnel
-  if [[ "$(confirm_yesno "是否安装 Cloudflare Tunnel (内网穿透)?" "N")" =~ ^[Yy]$ ]]; then
-    INSTALL_CLOUDFLARED=1
-    CLOUDFLARED_TOKEN="$(ask_secret "Cloudflare Tunnel Token (必填)" "")"
-    if [ -z "$CLOUDFLARED_TOKEN" ]; then
-      warn "未提供 Token，将跳过 Cloudflare Tunnel 安装"
+  if [ "$has_cloudflared" = true ]; then
+    echo -e "${YELLOW}[已安装] Cloudflare Tunnel${NC}"
+    if [[ "$(confirm_yesno "是否卸载 Cloudflare Tunnel?" "N")" =~ ^[Yy]$ ]]; then
       INSTALL_CLOUDFLARED=0
+      log_info "将卸载 Cloudflare Tunnel"
+    else
+      INSTALL_CLOUDFLARED=1
+      CLOUDFLARED_TOKEN="${CLOUDFLARED_TOKEN:-}"
+      log_info "保持 Cloudflare Tunnel 安装"
     fi
   else
-    INSTALL_CLOUDFLARED=0
+    if [[ "$(confirm_yesno "是否安装 Cloudflare Tunnel (内网穿透)?" "N")" =~ ^[Yy]$ ]]; then
+      INSTALL_CLOUDFLARED=1
+      CLOUDFLARED_TOKEN="$(ask_secret "Cloudflare Tunnel Token (必填)" "")"
+      if [ -z "$CLOUDFLARED_TOKEN" ]; then
+        warn "未提供 Token，将跳过 Cloudflare Tunnel 安装"
+        INSTALL_CLOUDFLARED=0
+      fi
+    else
+      INSTALL_CLOUDFLARED=0
+    fi
   fi
   
   # FileBrowser
-  if [[ "$(confirm_yesno "是否安装 FileBrowser (网页文件管理)?" "N")" =~ ^[Yy]$ ]]; then
-    INSTALL_FILEBROWSER=1
-    FILEBROWSER_PORT="$(ask "FileBrowser 端口" "8080")"
+  if [ "$has_filebrowser" = true ]; then
+    echo -e "${YELLOW}[已安装] FileBrowser (端口: ${FILEBROWSER_PORT:-8080})${NC}"
+    if [[ "$(confirm_yesno "是否卸载 FileBrowser?" "N")" =~ ^[Yy]$ ]]; then
+      INSTALL_FILEBROWSER=0
+      log_info "将卸载 FileBrowser"
+    else
+      INSTALL_FILEBROWSER=1
+      FILEBROWSER_PORT="${FILEBROWSER_PORT:-8080}"
+      log_info "保持 FileBrowser 安装"
+    fi
   else
-    INSTALL_FILEBROWSER=0
+    if [[ "$(confirm_yesno "是否安装 FileBrowser (网页文件管理)?" "N")" =~ ^[Yy]$ ]]; then
+      INSTALL_FILEBROWSER=1
+      FILEBROWSER_PORT="$(ask "FileBrowser 端口" "8080")"
+    else
+      INSTALL_FILEBROWSER=0
+    fi
   fi
 
   # AIClient-2-API
-  if [[ "$(confirm_yesno "是否安装 AIClient-2-API (统一模型接入中间件)?" "N")" =~ ^[Yy]$ ]]; then
-    INSTALL_AICLIENT=1
-    log_info "AIClient-2-API 将使用 Host 网络模式，默认管理端口 3000"
+  if [ "$has_aiclient" = true ]; then
+    echo -e "${YELLOW}[已安装] AIClient-2-API${NC}"
+    if [[ "$(confirm_yesno "是否卸载 AIClient-2-API?" "N")" =~ ^[Yy]$ ]]; then
+      INSTALL_AICLIENT=0
+      log_info "将卸载 AIClient-2-API"
+    else
+      INSTALL_AICLIENT=1
+      log_info "保持 AIClient-2-API 安装"
+    fi
   else
-    INSTALL_AICLIENT=0
+    if [[ "$(confirm_yesno "是否安装 AIClient-2-API (统一模型接入中间件)?" "N")" =~ ^[Yy]$ ]]; then
+      INSTALL_AICLIENT=1
+      log_info "AIClient-2-API 将使用 Host 网络模式，默认管理端口 3000"
+    else
+      INSTALL_AICLIENT=0
+    fi
   fi
 }
 
