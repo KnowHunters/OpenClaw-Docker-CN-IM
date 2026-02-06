@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-33"
+SCRIPT_VERSION="2026.2.6-34"
 
 
 # Initialize log file
@@ -1109,6 +1109,8 @@ main() {
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
 
   install_docker
+  configure_docker_proxy
+  configure_docker_mirror
   ensure_docker_running
   ensure_compose
   ensure_docker_permissions
@@ -1118,7 +1120,7 @@ main() {
   # Initialize wizard steps
   echo ""
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
-  echo -e "${GRAY}  [2/6] 基础配置                                           ${NC}"
+  echo -e "${GRAY}  [3/6] 基础配置                                           ${NC}"
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
   
   prompt_basic_settings
@@ -1128,14 +1130,14 @@ main() {
   
   echo ""
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
-  echo -e "${GRAY}  [3/6] 网络配置 (可选)                                    ${NC}"
+  echo -e "${GRAY}  [4/6] 网络配置 (可选)                                    ${NC}"
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
   
   prompt_network_tools
 
   echo ""
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
-  echo -e "${GRAY}  [4/6] 代码获取                                           ${NC}"
+  echo -e "${GRAY}  [5/6] 代码获取                                           ${NC}"
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
   
   confirm_summary
@@ -1143,7 +1145,7 @@ main() {
   
   echo ""
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
-  echo -e "${GRAY}  [5/6] 构建与启动                                         ${NC}"
+  echo -e "${GRAY}  [6/6] 构建与启动                                         ${NC}"
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
   
   write_summary_file
@@ -1155,7 +1157,7 @@ main() {
   
   echo ""
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
-  echo -e "${GRAY}  [6/6] 部署完成                                           ${NC}"
+  echo -e "${GRAY}  部署完成                                                 ${NC}"
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
   
   show_next_steps
