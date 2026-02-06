@@ -18,9 +18,11 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-31"
+SCRIPT_VERSION="2026.2.6-32"
+
 
 # Initialize log file
+LOG_FILE="/tmp/openclaw_deploy.log"
 INSTALL_DIR="${INSTALL_DIR:-$INSTALL_DIR_DEFAULT}"
 : > "$LOG_FILE"
 
