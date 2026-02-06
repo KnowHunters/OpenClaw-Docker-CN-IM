@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-16"
+SCRIPT_VERSION="2026.2.6-17"
 LOG_FILE="/tmp/openclaw_deploy.log"
 
 # Initialize log file
@@ -507,22 +507,21 @@ ensure_compose() {
 clone_or_update_repo() {
   CURRENT_STEP="clone"
   if [ -d "$INSTALL_DIR/.git" ]; then
-    log "检测到已有目录，正在更新仓库：$INSTALL_DIR"
-    git -C "$INSTALL_DIR" fetch --all --prune
-    git -C "$INSTALL_DIR" checkout "$BRANCH"
-    git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH"
+    log "检测到已有目录：$INSTALL_DIR"
+    execute_task "正在更新仓库" git -C "$INSTALL_DIR" fetch --all --prune
+    git -C "$INSTALL_DIR" checkout "$BRANCH" >/dev/null 2>&1 || true
+    execute_task "拉取最新代码" git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH"
   elif [ -d "$INSTALL_DIR" ] && [ -n "$(ls -A "$INSTALL_DIR" 2>/dev/null)" ]; then
     warn "目标目录已存在且非空：$INSTALL_DIR"
     if [[ "$(confirm_yesno "是否继续并在该目录中克隆？（可能失败）" "N")" =~ ^[Yy]$ ]]; then
-      git clone --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
+      execute_task "正在克隆仓库" git clone --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
     else
       INSTALL_DIR="$(ask "请输入新的部署目录" "${INSTALL_DIR_DEFAULT}")"
       clone_or_update_repo
     fi
   else
-    log "正在克隆仓库到：$INSTALL_DIR"
     mkdir -p "$INSTALL_DIR"
-    git clone --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
+    execute_task "正在克隆仓库" git clone --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
   fi
 }
 
@@ -1052,6 +1051,9 @@ main() {
   prompt_basic_settings
   check_self_update
   
+  # Step 2: Env Configuration (Moved here from prompt_env_collect to be part of the flow)
+  prompt_env_collect
+  
   echo ""
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
   echo -e "${GRAY}  [2/5] 安装 Docker                                        ${NC}"
@@ -1078,6 +1080,7 @@ main() {
   echo -e "${GRAY}═══════════════════════════════════════════════════════════${NC}"
   
   write_summary_file
+  write_env_file
   generate_override_file
   build_and_up
   health_check
