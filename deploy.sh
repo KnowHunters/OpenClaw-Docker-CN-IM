@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.6-37"
+SCRIPT_VERSION="2026.2.6-38"
 
 
 # Initialize log file
@@ -1543,7 +1543,18 @@ main_menu() {
         pause_key
         ;;
       3)
-        diagnostic_check
+        echo ""
+        echo " [1] 自动智能诊断 (Auto Diagnostics)"
+        echo " [2] OpenClaw 命令行工具 (CLI Tools)"
+        echo " [3] 返回上级菜单"
+        echo ""
+        local diag_choice
+        read -r -p "请选择: " diag_choice
+        case "$diag_choice" in
+          1) diagnostic_check ;;
+          2) openclaw_cli_menu ;;
+          *) ;;
+        esac
         ;;
       4)
         collect_logs_bundle
