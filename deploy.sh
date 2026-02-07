@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.8-4"
+SCRIPT_VERSION="2026.2.8-5"
 
 
 # Initialize log file
@@ -862,7 +862,11 @@ confirm_summary() {
   fi
   
   if [ "${USE_ZEROTIER:-}" = "true" ] || [ "${INSTALL_ZEROTIER:-0}" -eq 1 ]; then
-    log "✓ ZeroTier: 网络 ID ${ZEROTIER_NETWORK_ID:-}"
+    if [ -n "${ZEROTIER_ID:-}" ]; then
+      log "✓ ZeroTier: 网络 ID ${ZEROTIER_ID}"
+    else
+      log "✓ ZeroTier: 已启用（未加入网络）"
+    fi
     has_network_tool=true
   fi
   
@@ -872,7 +876,7 @@ confirm_summary() {
   fi
   
   if [ "${USE_CLOUDFLARED:-}" = "true" ] || [ "${INSTALL_CLOUDFLARED:-0}" -eq 1 ]; then
-    local token_preview="${CLOUDFLARE_TUNNEL_TOKEN:-}"
+    local token_preview="${CLOUDFLARED_TOKEN:-}"
     if [ -n "$token_preview" ]; then
       log "✓ Cloudflare Tunnel: Token ${token_preview:0:20}..."
     else
