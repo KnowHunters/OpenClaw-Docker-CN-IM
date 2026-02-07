@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.8-3"
+SCRIPT_VERSION="2026.2.8-4"
 
 
 # Initialize log file
@@ -832,12 +832,12 @@ confirm_summary() {
     has_channel=true
   fi
   
-  if [ -n "${QQ_APP_ID:-}" ] && [ -n "${QQ_CLIENT_SECRET:-}" ]; then
+  if [ -n "${QQBOT_APP_ID:-}" ] && [ -n "${QQBOT_CLIENT_SECRET:-}" ]; then
     log "✓ QQ Bot: 已配置"
     has_channel=true
   fi
   
-  if [ -n "${WECOM_CORP_ID:-}" ] && [ -n "${WECOM_AGENT_ID:-}" ] && [ -n "${WECOM_SECRET:-}" ]; then
+  if [ -n "${WECOM_TOKEN:-}" ] && [ -n "${WECOM_ENCODING_AES_KEY:-}" ]; then
     log "✓ 企业微信: 已配置"
     has_channel=true
   fi
@@ -851,40 +851,39 @@ confirm_summary() {
   echo -e "${BOLD}═══ 网络工具 ═══${NC}"
   local has_network_tool=false
   
-  if [ "${USE_AICLIENT:-}" = "true" ]; then
+  if [ "${USE_AICLIENT:-}" = "true" ] || [ "${INSTALL_AICLIENT:-0}" -eq 1 ]; then
     log "✓ AIClient-2-API: 端口 ${AICLIENT_PORT:-3000}"
     has_network_tool=true
   fi
   
-  if [ "${USE_FILEBROWSER:-}" = "true" ]; then
+  if [ "${USE_FILEBROWSER:-}" = "true" ] || [ "${INSTALL_FILEBROWSER:-0}" -eq 1 ]; then
     log "✓ FileBrowser: 端口 ${FILEBROWSER_PORT:-8080}"
     has_network_tool=true
   fi
   
-  if [ "${USE_ZEROTIER:-}" = "true" ]; then
+  if [ "${USE_ZEROTIER:-}" = "true" ] || [ "${INSTALL_ZEROTIER:-0}" -eq 1 ]; then
     log "✓ ZeroTier: 网络 ID ${ZEROTIER_NETWORK_ID:-}"
     has_network_tool=true
   fi
   
-  if [ "${USE_TAILSCALE:-}" = "true" ]; then
+  if [ "${USE_TAILSCALE:-}" = "true" ] || [ "${INSTALL_TAILSCALE:-0}" -eq 1 ]; then
     log "✓ Tailscale: 已启用"
     has_network_tool=true
   fi
   
-  if [ "${USE_CLOUDFLARED:-}" = "true" ]; then
-    log "✓ Cloudflare Tunnel: Token ${CLOUDFLARE_TUNNEL_TOKEN:0:20}..."
+  if [ "${USE_CLOUDFLARED:-}" = "true" ] || [ "${INSTALL_CLOUDFLARED:-0}" -eq 1 ]; then
+    local token_preview="${CLOUDFLARE_TUNNEL_TOKEN:-}"
+    if [ -n "$token_preview" ]; then
+      log "✓ Cloudflare Tunnel: Token ${token_preview:0:20}..."
+    else
+      log "✓ Cloudflare Tunnel: 已启用"
+    fi
     has_network_tool=true
   fi
   
   if [ "$has_network_tool" = false ]; then
     log "✗ 未配置网络工具"
   fi
-  echo ""
-  
-  # 性能配置
-  echo -e "${BOLD}═══ 性能配置 ═══${NC}"
-  log "Agent 并发: ${AGENT_MAX_CONCURRENT:-4}"
-  log "Subagent 并发: ${SUBAGENT_MAX_CONCURRENT:-8}"
   echo ""
   
   if is_tty; then
