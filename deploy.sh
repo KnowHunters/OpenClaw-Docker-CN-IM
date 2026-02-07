@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ════════════════════ 全局配置 ════════════════════
-SCRIPT_VERSION="2026.2.8-2"
+SCRIPT_VERSION="2026.2.8-3"
 
 
 # Initialize log file
@@ -817,27 +817,27 @@ confirm_summary() {
   echo -e "${BOLD}═══ 频道配置 ═══${NC}"
   local has_channel=false
   
-  if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+  if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
     log "✓ Telegram: 已配置"
     has_channel=true
   fi
   
-  if [ -n "$FEISHU_APP_ID" ] && [ -n "$FEISHU_APP_SECRET" ]; then
+  if [ -n "${FEISHU_APP_ID:-}" ] && [ -n "${FEISHU_APP_SECRET:-}" ]; then
     log "✓ 飞书: 已配置"
     has_channel=true
   fi
   
-  if [ -n "$DINGTALK_CLIENT_ID" ] && [ -n "$DINGTALK_CLIENT_SECRET" ]; then
+  if [ -n "${DINGTALK_CLIENT_ID:-}" ] && [ -n "${DINGTALK_CLIENT_SECRET:-}" ]; then
     log "✓ 钉钉: 已配置"
     has_channel=true
   fi
   
-  if [ -n "$QQ_APP_ID" ] && [ -n "$QQ_CLIENT_SECRET" ]; then
+  if [ -n "${QQ_APP_ID:-}" ] && [ -n "${QQ_CLIENT_SECRET:-}" ]; then
     log "✓ QQ Bot: 已配置"
     has_channel=true
   fi
   
-  if [ -n "$WECOM_CORP_ID" ] && [ -n "$WECOM_AGENT_ID" ] && [ -n "$WECOM_SECRET" ]; then
+  if [ -n "${WECOM_CORP_ID:-}" ] && [ -n "${WECOM_AGENT_ID:-}" ] && [ -n "${WECOM_SECRET:-}" ]; then
     log "✓ 企业微信: 已配置"
     has_channel=true
   fi
@@ -851,27 +851,27 @@ confirm_summary() {
   echo -e "${BOLD}═══ 网络工具 ═══${NC}"
   local has_network_tool=false
   
-  if [ "$USE_AICLIENT" = "true" ]; then
+  if [ "${USE_AICLIENT:-}" = "true" ]; then
     log "✓ AIClient-2-API: 端口 ${AICLIENT_PORT:-3000}"
     has_network_tool=true
   fi
   
-  if [ "$USE_FILEBROWSER" = "true" ]; then
+  if [ "${USE_FILEBROWSER:-}" = "true" ]; then
     log "✓ FileBrowser: 端口 ${FILEBROWSER_PORT:-8080}"
     has_network_tool=true
   fi
   
-  if [ "$USE_ZEROTIER" = "true" ]; then
-    log "✓ ZeroTier: 网络 ID ${ZEROTIER_NETWORK_ID}"
+  if [ "${USE_ZEROTIER:-}" = "true" ]; then
+    log "✓ ZeroTier: 网络 ID ${ZEROTIER_NETWORK_ID:-}"
     has_network_tool=true
   fi
   
-  if [ "$USE_TAILSCALE" = "true" ]; then
+  if [ "${USE_TAILSCALE:-}" = "true" ]; then
     log "✓ Tailscale: 已启用"
     has_network_tool=true
   fi
   
-  if [ "$USE_CLOUDFLARED" = "true" ]; then
+  if [ "${USE_CLOUDFLARED:-}" = "true" ]; then
     log "✓ Cloudflare Tunnel: Token ${CLOUDFLARE_TUNNEL_TOKEN:0:20}..."
     has_network_tool=true
   fi
